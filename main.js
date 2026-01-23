@@ -661,26 +661,35 @@ window.addEventListener('keydown', (e) => {
     }
 });
 
-// Initialize
-const urlSeed = parseAnchorParams();
-initScene();
+// Initialize when DOM is ready
+function init() {
+    const urlSeed = parseAnchorParams();
+    initScene();
 
-// Display anchor configuration in console
-console.log('Anchor Configuration:', {
-    count: CONFIG.ANCHOR_POINTS,
-    baseRadiusRange: [CONFIG.ANCHOR_BASE_RADIUS_MIN, CONFIG.ANCHOR_BASE_RADIUS_MAX],
-    angleJitter: `±${CONFIG.ANCHOR_ANGLE_JITTER.toFixed(2)} rad (±${(CONFIG.ANCHOR_ANGLE_JITTER * 180 / Math.PI).toFixed(1)}°)`,
-    radiusVariation: `±${CONFIG.ANCHOR_RADIUS_VARIATION}mm`,
-    center: [CONFIG.ANCHOR_CENTER_X, CONFIG.ANCHOR_CENTER_Y]
-});
+    // Display anchor configuration in console
+    console.log('Anchor Configuration:', {
+        count: CONFIG.ANCHOR_POINTS,
+        baseRadiusRange: [CONFIG.ANCHOR_BASE_RADIUS_MIN, CONFIG.ANCHOR_BASE_RADIUS_MAX],
+        angleJitter: `±${CONFIG.ANCHOR_ANGLE_JITTER.toFixed(2)} rad (±${(CONFIG.ANCHOR_ANGLE_JITTER * 180 / Math.PI).toFixed(1)}°)`,
+        radiusVariation: `±${CONFIG.ANCHOR_RADIUS_VARIATION}mm`,
+        center: [CONFIG.ANCHOR_CENTER_X, CONFIG.ANCHOR_CENTER_Y]
+    });
 
-if (urlSeed !== null) {
-    currentSeed = urlSeed;
-    document.getElementById('seed-info').textContent = `Seed: ${urlSeed} (from URL)`;
-    const composition = generateComposition(urlSeed);
-    renderComposition(composition);
-} else {
-    generateNew();
+    if (urlSeed !== null) {
+        currentSeed = urlSeed;
+        document.getElementById('seed-info').textContent = `Seed: ${urlSeed} (from URL)`;
+        const composition = generateComposition(urlSeed);
+        renderComposition(composition);
+    } else {
+        generateNew();
+    }
+
+    animate();
 }
 
-animate();
+// Wait for DOM to be ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
