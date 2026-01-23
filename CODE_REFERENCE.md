@@ -481,21 +481,150 @@ function generateComposition(seed):
 
 ### Support Structure Logic (Legs & Arches)
 
-**Center of Mass Calculation:**
-- Algorithm calculates the center of mass for each layer's lens configuration
-- This determines the **distribution and placement** of support legs
-- Ensures physical stability when assembled in the real world
+**Location:** `main.js:328-383` (geometry functions), `main.js:453-501` (placement logic)
 
-**Two Types of Supports:**
-1. **Straight legs** - Vertical support connections
-2. **Curved arches** - Curved connection paths
+#### Support Types
 
-*Logic for choosing straight vs curved: Unknown (requires further investigation)*
+**1. Straight Legs** (`createStraightLeg`, line 328-345)
+- Vertical support connections to ground
+- Dimensions: 1.2mm width (`CONFIG.LEG_DIAMETER`) × 3.175mm depth (`CONFIG.RING_HEIGHT`)
+- BoxGeometry mesh with dark material (0x202020)
+- Height calculated dynamically based on circle position
+- Placement options: 'D' (down), 'L' (left), 'R' (right)
+
+**2. Curved Arches** (`createCurvedArch`, line 347-383)
+- Half-cylinder connections between two points
+- Creates elegant curved spans between circles
+- Includes vertical legs at both arch endpoints
+- Radius = distance / 2 between connection points
+
+#### Placement Logic (main.js:453-501)
+
+**Anchor-Based Leg Placement:**
+```javascript
+// For each circle, calculate 3 anchor directions:
+anchorDirections = {
+    'D': (0, -1, 0),   // Down to ground
+    'L': (-1, 0, 0),   // Left horizontal
+    'R': (1, 0, 0)     // Right horizontal
+}
+
+// For each direction:
+anchorPos = circle.position + direction × circle.radius
+
+// Decision: 70% straight, 30% curved
+useDirectLeg = random() < 0.7
+
+if (useDirectLeg && direction === 'D'):
+    create straight leg from anchor to ground
+```
+
+**Arch Connection Logic:**
+```javascript
+// For adjacent circles in same layer:
+probability = 0.2  // 20% chance
+
+if (random() < 0.2):
+    distance = distance between circle centers
+
+    // Validate distance constraints
+    if (15mm < distance < (r1 + r2 + 30mm)):
+        archRadius = distance / 2
+        create curved arch between circles
+```
+
+**Probabilistic Decisions:**
+- **70% straight legs** - Direct vertical supports
+- **30% curved connections** - Aesthetic curved paths (NOT IMPLEMENTED in main.js)
+- **20% inter-circle arches** - Arches between adjacent circles in layer
+
+#### Distance Constraints for Arches
+
+- **Minimum distance:** 15mm - Too close, no arch needed
+- **Maximum distance:** `radius1 + radius2 + 30mm` - Too far, arch would sag
+- **Optimal range:** Between these bounds creates structurally sound arches
+
+#### Center-of-Mass Logic (NOT in main.js)
+
+**Status:** The sophisticated center-of-mass calculations mentioned by the user are in `original.js` (production code), not in the simplified `main.js` reference implementation.
+
+**What main.js shows:**
+- Simplified anchor-based placement (3 directions per circle)
+- Random probability decisions (70/30, 20% thresholds)
+- Distance-based arch validation
+
+**What original.js likely contains:**
+- Center-of-mass calculations per layer
+- Weight distribution analysis
+- Structural stability validation
+- Intelligent support placement based on physics
+- Decision logic for straight vs curved based on load
 
 **Physical Validation:**
 - These sculptures are printed, assembled, and **stand successfully** in the physical world
-- The center-of-mass approach ensures real-world structural integrity
-- Support placement is not just aesthetic - it's structurally calculated
+- The production algorithm (original.js) uses center-of-mass for real-world structural integrity
+- Support placement is not just aesthetic - it's structurally calculated for stability
+
+## Support Structure Diagram
+
+```
+SUPPORT PLACEMENT SYSTEM (from main.js analysis)
+═══════════════════════════════════════════════════════════════
+
+FOR EACH CIRCLE IN LAYER:
+│
+├─ ANCHOR POSITIONS (3 per circle)
+│  ├─ Down:  (x, y - radius, z)      ─┐
+│  ├─ Left:  (x - radius, y, z)       │ Calculated from
+│  └─ Right: (x + radius, y, z)      ─┘ circle edge
+│
+├─ LEG DECISION (per anchor)
+│  ├─ Random(0,1) < 0.7 → STRAIGHT LEG (70%)
+│  │   └─ Create vertical BoxGeometry to ground
+│  │       • Width: 1.2mm
+│  │       • Height: dynamic (y-position dependent)
+│  │       • Depth: 3.175mm
+│  │
+│  └─ Random(0,1) ≥ 0.7 → CURVED PATH (30%, not implemented)
+│
+└─ ARCH CONNECTIONS (between circles)
+   ├─ Check adjacent circle in layer (sequential order)
+   ├─ Random(0,1) < 0.2 → TRY ARCH (20% chance)
+   │
+   └─ VALIDATE DISTANCE:
+      ├─ d = √[(x₂-x₁)² + (y₂-y₁)²]
+      ├─ min = 15mm (too close, skip)
+      ├─ max = r₁ + r₂ + 30mm (too far, skip)
+      │
+      └─ IF valid → CREATE ARCH
+          • Type: Half-cylinder (CylinderGeometry, θ=π)
+          • Radius: distance / 2
+          • Includes vertical legs at both ends
+
+═══════════════════════════════════════════════════════════════
+PROBABILISTIC THRESHOLDS:
+• 70% straight legs (simple, efficient)
+• 30% curved (aesthetic, complex - NOT IN MAIN.JS)
+• 20% arches between circles (visual connection)
+═══════════════════════════════════════════════════════════════
+```
+
+### Support Structure Observations
+
+**From main.js (simplified reference):**
+1. **Anchor-based placement** - 3 positions per circle (down, left, right)
+2. **Random decisions** - 70/30 straight/curved split, 20% arch probability
+3. **Distance validation** - Arches only when structurally feasible
+4. **No center-of-mass** - Uses simple positional logic
+
+**From original.js (production, inferred):**
+1. **Center-of-mass calculation** - Calculates CoM for each layer
+2. **Load distribution** - Places supports where weight needs balance
+3. **Structural validation** - Ensures prints stand in physical world
+4. **Intelligent placement** - Decides straight vs curved based on physics
+
+**Key Insight:**
+The `main.js` is a **teaching/reference implementation** showing basic concepts. The `original.js` production code likely contains sophisticated physics-based support placement that ensures real-world structural integrity. Your mention of center-of-mass calculations confirms the production algorithm is more advanced than what we see in the reference code.
 
 ## Code Structure
 
