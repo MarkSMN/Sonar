@@ -4,6 +4,11 @@
 # Node modules (if you add any later)
 node_modules/
 
-# Optional: exclude learning files if you don't want them in the repo
+# Learning and development files
 Learning files/
 fullcode/
+screenshots/
+
+# Test files (don't deploy these)
+test.html
+index-custom.html

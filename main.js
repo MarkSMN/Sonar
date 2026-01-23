@@ -145,18 +145,19 @@ function generateAnchorPoints(rng) {
 }
 
 // Check if two circles overlap (used to prevent invalid configurations)
-function circlesOverlap(c1, c2, buffer = 2) {
+function circlesOverlap(c1, c2, buffer = -5) {
     const dx = c1.x - c2.x;
     const dy = c1.y - c2.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
-    return distance < (c1.radius + c2.radius - buffer);
+    // Negative buffer allows overlap for tighter packing like the original
+    return distance < (c1.radius + c2.radius + buffer);
 }
 
 // Generate circles for a single layer using anchor points
 function generateLayerCircles(anchorPoints, rng, existingCircles = []) {
     const circles = [];
-    const attempts = 100;
-    const numCircles = rng.int(1, 4); // 1-4 circles per layer
+    const attempts = 200;
+    const numCircles = rng.int(8, 15); // 8-15 circles per layer for dense packing
 
     for (let i = 0; i < numCircles; i++) {
         let bestCircle = null;
@@ -394,16 +395,36 @@ function createLegGeometry(startPoint, endPoint, diameter) {
 
 // Render composition in 3D
 function renderComposition(composition) {
-    // Clear existing geometry
-    while (scene.children.length > 0) {
-        const child = scene.children[0];
-        if (child.geometry) child.geometry.dispose();
-        if (child.material) child.material.dispose();
-        scene.remove(child);
-    }
+    // Clear only meshes, keep lights
+    const objectsToRemove = [];
+    scene.children.forEach(child => {
+        if (child.isMesh || child.isGroup) {
+            objectsToRemove.push(child);
+        }
+    });
 
-    // Re-add lights and ground
-    initScene();
+    objectsToRemove.forEach(object => {
+        if (object.geometry) object.geometry.dispose();
+        if (object.material) {
+            if (Array.isArray(object.material)) {
+                object.material.forEach(m => m.dispose());
+            } else {
+                object.material.dispose();
+            }
+        }
+        scene.remove(object);
+    });
+
+    // Re-add ground and grid
+    const groundGeometry = new THREE.PlaneGeometry(1000, 1000);
+    const groundMaterial = new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.8 });
+    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    const gridHelper = new THREE.GridHelper(500, 50, 0xcccccc, 0xeeeeee);
+    scene.add(gridHelper);
 
     // Material for frames (black)
     const frameMaterial = new THREE.MeshStandardMaterial({
