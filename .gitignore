@@ -1,0 +1,9 @@
+# MacOS
+.DS_Store
+
+# Node modules (if you add any later)
+node_modules/
+
+# Optional: exclude learning files if you don't want them in the repo
+Learning files/
+fullcode/
