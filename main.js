@@ -7,6 +7,55 @@ let scene, camera, renderer, controls;
 let currentSeed = null;
 let currentComposition = null;
 
+// Parse URL parameters to override anchor configuration
+function parseAnchorParams() {
+    const params = new URLSearchParams(window.location.search);
+
+    // Anchor count
+    if (params.has('anchors')) {
+        const count = parseInt(params.get('anchors'));
+        if (count >= 2 && count <= 8) CONFIG.ANCHOR_POINTS = count;
+    }
+
+    // Base radius range (single value or min-max)
+    if (params.has('baseRadius')) {
+        const radius = parseFloat(params.get('baseRadius'));
+        CONFIG.ANCHOR_BASE_RADIUS_MIN = radius;
+        CONFIG.ANCHOR_BASE_RADIUS_MAX = radius;
+    }
+    if (params.has('baseRadiusMin')) {
+        CONFIG.ANCHOR_BASE_RADIUS_MIN = parseFloat(params.get('baseRadiusMin'));
+    }
+    if (params.has('baseRadiusMax')) {
+        CONFIG.ANCHOR_BASE_RADIUS_MAX = parseFloat(params.get('baseRadiusMax'));
+    }
+
+    // Angle jitter (in radians)
+    if (params.has('jitter')) {
+        CONFIG.ANCHOR_ANGLE_JITTER = parseFloat(params.get('jitter'));
+    }
+
+    // Radius variation per anchor
+    if (params.has('variation')) {
+        CONFIG.ANCHOR_RADIUS_VARIATION = parseFloat(params.get('variation'));
+    }
+
+    // Center point position
+    if (params.has('centerX')) {
+        CONFIG.ANCHOR_CENTER_X = parseFloat(params.get('centerX'));
+    }
+    if (params.has('centerY')) {
+        CONFIG.ANCHOR_CENTER_Y = parseFloat(params.get('centerY'));
+    }
+
+    // Seed override
+    if (params.has('seed')) {
+        return parseInt(params.get('seed'));
+    }
+
+    return null;
+}
+
 // Configuration based on your specifications
 const CONFIG = {
     // Physical measurements (in mm)
@@ -18,8 +67,14 @@ const CONFIG = {
     MIN_RADIUS: 13,
     MAX_RADIUS: 61,
 
-    // Anchor point configuration
+    // Anchor point configuration (can be overridden by URL params)
     ANCHOR_POINTS: 3, // Triad
+    ANCHOR_BASE_RADIUS_MIN: 40,  // mm from center
+    ANCHOR_BASE_RADIUS_MAX: 80,  // mm from center
+    ANCHOR_ANGLE_JITTER: 0.3,    // radians (±17°)
+    ANCHOR_RADIUS_VARIATION: 20, // ± mm per anchor
+    ANCHOR_CENTER_X: 0,          // mm
+    ANCHOR_CENTER_Y: 150         // mm (middle of canvas)
 
     // Leg configuration
     LEG_DIAMETER: 6.35, // 1/4 inch rod
@@ -124,16 +179,15 @@ function initScene() {
 // Generate anchor point triad (constellation)
 function generateAnchorPoints(rng) {
     const points = [];
-    const centerX = 0;
-    const centerY = CONFIG.CANVAS_HEIGHT / 2;
+    const centerX = CONFIG.ANCHOR_CENTER_X;
+    const centerY = CONFIG.ANCHOR_CENTER_Y;
 
-    // Generate 3 anchor points with some randomness
-    // They should be roughly distributed to allow interesting compositions
-    const baseRadius = rng.range(40, 80);
+    // Generate anchor points with configurable parameters
+    const baseRadius = rng.range(CONFIG.ANCHOR_BASE_RADIUS_MIN, CONFIG.ANCHOR_BASE_RADIUS_MAX);
 
     for (let i = 0; i < CONFIG.ANCHOR_POINTS; i++) {
-        const angle = (i / CONFIG.ANCHOR_POINTS) * Math.PI * 2 + rng.range(-0.3, 0.3);
-        const radius = baseRadius + rng.range(-20, 20);
+        const angle = (i / CONFIG.ANCHOR_POINTS) * Math.PI * 2 + rng.range(-CONFIG.ANCHOR_ANGLE_JITTER, CONFIG.ANCHOR_ANGLE_JITTER);
+        const radius = baseRadius + rng.range(-CONFIG.ANCHOR_RADIUS_VARIATION, CONFIG.ANCHOR_RADIUS_VARIATION);
 
         points.push({
             x: centerX + Math.cos(angle) * radius,
@@ -608,6 +662,25 @@ window.addEventListener('keydown', (e) => {
 });
 
 // Initialize
+const urlSeed = parseAnchorParams();
 initScene();
-generateNew();
+
+// Display anchor configuration in console
+console.log('Anchor Configuration:', {
+    count: CONFIG.ANCHOR_POINTS,
+    baseRadiusRange: [CONFIG.ANCHOR_BASE_RADIUS_MIN, CONFIG.ANCHOR_BASE_RADIUS_MAX],
+    angleJitter: `±${CONFIG.ANCHOR_ANGLE_JITTER.toFixed(2)} rad (±${(CONFIG.ANCHOR_ANGLE_JITTER * 180 / Math.PI).toFixed(1)}°)`,
+    radiusVariation: `±${CONFIG.ANCHOR_RADIUS_VARIATION}mm`,
+    center: [CONFIG.ANCHOR_CENTER_X, CONFIG.ANCHOR_CENTER_Y]
+});
+
+if (urlSeed !== null) {
+    currentSeed = urlSeed;
+    document.getElementById('seed-info').textContent = `Seed: ${urlSeed} (from URL)`;
+    const composition = generateComposition(urlSeed);
+    renderComposition(composition);
+} else {
+    generateNew();
+}
+
 animate();
