@@ -25,9 +25,54 @@
             justify-content: center;
             position: relative;
         }
+        #canvas-wrapper {
+            position: relative;
+            display: inline-block;
+        }
         #canvas {
             background: #ffffff;
             display: block;
+        }
+        #thumbnail-gallery {
+            position: absolute;
+            top: 765px;
+            left: 0;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            z-index: 1;
+            pointer-events: none;
+        }
+        .thumbnail-item {
+            flex-shrink: 0;
+            text-align: center;
+            pointer-events: auto;
+        }
+        .thumbnail-item:nth-child(1) {
+            order: 1;
+        }
+        .thumbnail-item:nth-child(2) {
+            order: 4;
+        }
+        .thumbnail-item:nth-child(3) {
+            order: 2;
+        }
+        .thumbnail-item:nth-child(4) {
+            order: 3;
+        }
+        .thumbnail-image {
+            width: 200px;
+            height: 200px;
+            object-fit: cover;
+            border: 2px solid #cccccc;
+            display: block;
+            background: white;
+        }
+        .thumbnail-label {
+            font-size: 10px;
+            color: #888888;
+            margin-top: 4px;
+            font-family: 'Courier New', monospace;
         }
         #sidebar {
             width: 300px;
@@ -112,7 +157,12 @@
 </head>
 <body>
     <div id="canvas-container">
-        <canvas id="canvas" width="1200" height="900"></canvas>
+        <div id="canvas-wrapper">
+            <canvas id="canvas" width="1200" height="900"></canvas>
+        </div>
+        <div id="thumbnail-gallery">
+            <!-- Thumbnails will be added here -->
+        </div>
     </div>
 
     <div id="sidebar">
@@ -137,8 +187,10 @@
 
         <div class="section">
             <div class="section-title">Export</div>
+            <button onclick="exportAllFiles()" style="background: #3a3a3a; color: #00ff00; font-weight: 600;">Export All Files</button>
             <button onclick="exportJSON()">Save JSON</button>
             <button onclick="exportPNG()">Save PNG</button>
+            <button onclick="exportLensSVG()">Save Lens SVG</button>
         </div>
 
         <div class="section">
@@ -212,7 +264,7 @@
         const SCALE = 3.5;
         const CENTER_X = canvas.width / 2;
         const CENTER_Y = canvas.height / 2;
-        const BOUNDARY = 220;           // mm (work area)
+        const BOUNDARY = 152;           // mm (work area) - 6" x 6" = 152.4mm
 
         // User-adjustable parameters
         let MAX_LENS_COUNT = 12;
@@ -224,6 +276,9 @@
         let currentSeed = Date.now();
         let lensSeed = Date.now();
         let legSeed = Date.now();
+
+        // Thumbnail gallery (max 4)
+        let thumbnails = [];
 
         // Dragging state
         let draggedAnchor = null;
@@ -388,6 +443,13 @@
             return -1;
         }
 
+        // Track occupied attachment points for each ring
+        // occupiedPoints[ringIndex] = Set of 'L', 'C', 'R'
+        let occupiedPoints = [];
+
+        // Bridge connections array
+        let bridges = [];
+
         // Regenerate legs while keeping rings and anchors static
         function regenerateLegs() {
             if (rings.length === 0) return;
@@ -401,6 +463,10 @@
                 ring.legType = 'none';
                 ring.adjacentRingIndex = -1;
             });
+
+            // Clear bridges and occupied points
+            bridges = [];
+            occupiedPoints = rings.map(() => new Set());
 
             // Build legs up to max count
             let currentLegCount = 0;
@@ -436,21 +502,153 @@
                 if (currentLegCount + legCount <= MAX_LEG_COUNT) {
                     rings[ringIndex].legType = legType;
                     currentLegCount += legCount;
+
+                    // Mark attachment points as occupied
+                    markAttachmentPoints(ringIndex, legType);
                 } else if (currentLegCount < MAX_LEG_COUNT) {
                     // We have room for a single leg but not a double
                     // Force a single or curved leg
                     const singleLegTypes = ['single', 'curved_lc', 'curved_cr', 'curved_lr'];
-                    rings[ringIndex].legType = singleLegTypes[Math.floor(legRng() * singleLegTypes.length)];
+                    legType = singleLegTypes[Math.floor(legRng() * singleLegTypes.length)];
+                    rings[ringIndex].legType = legType;
                     currentLegCount += 1;
+
+                    // Mark attachment points as occupied
+                    markAttachmentPoints(ringIndex, legType);
                 }
             }
 
             // Ensure at least one leg exists
             if (currentLegCount === 0 && rings.length > 0) {
                 rings[0].legType = 'single';
+                markAttachmentPoints(0, 'single');
+            }
+
+            // Now assign random bridges (20-30% chance per composition, max 3)
+            if (rings.length >= 2 && legRng() < 0.25) { // 25% chance to have bridges
+                const maxBridges = Math.min(3, Math.floor(rings.length / 2));
+                const numBridges = Math.floor(legRng() * maxBridges) + 1; // 1 to maxBridges
+
+                for (let b = 0; b < numBridges; b++) {
+                    const bridge = assignRandomBridge(legRng);
+                    if (bridge) {
+                        bridges.push(bridge);
+
+                        // IMPORTANT: Set both lenses to 'none' - the bridge IS their support
+                        // A lens cannot have both a bridge AND regular legs
+                        rings[bridge.lens1Index].legType = 'none';
+                        rings[bridge.lens2Index].legType = 'none';
+
+                        // Clear their occupied points from regular legs (they now only have bridge attachments)
+                        if (occupiedPoints[bridge.lens1Index]) {
+                            occupiedPoints[bridge.lens1Index].clear();
+                        }
+                        if (occupiedPoints[bridge.lens2Index]) {
+                            occupiedPoints[bridge.lens2Index].clear();
+                        }
+
+                        // Mark bridge attachment points as occupied
+                        occupiedPoints[bridge.lens1Index].add(bridge.lens1Position);
+                        occupiedPoints[bridge.lens2Index].add(bridge.lens2Position);
+
+                        currentLegCount += 2; // Each bridge counts as 2 legs
+                        if (currentLegCount >= MAX_LEG_COUNT) break;
+                    }
+                }
             }
 
             draw();
+        }
+
+        // Mark attachment points as occupied based on leg type
+        function markAttachmentPoints(ringIndex, legType) {
+            switch(legType) {
+                case 'single':
+                    occupiedPoints[ringIndex].add('C');
+                    break;
+                case 'double':
+                    occupiedPoints[ringIndex].add('L');
+                    occupiedPoints[ringIndex].add('R');
+                    break;
+                case 'curved_lc':
+                    occupiedPoints[ringIndex].add('L');
+                    occupiedPoints[ringIndex].add('C');
+                    break;
+                case 'curved_cr':
+                    occupiedPoints[ringIndex].add('C');
+                    occupiedPoints[ringIndex].add('R');
+                    break;
+                case 'curved_lr':
+                    occupiedPoints[ringIndex].add('L');
+                    occupiedPoints[ringIndex].add('R');
+                    break;
+            }
+        }
+
+        // Assign a random bridge between two lenses
+        function assignRandomBridge(rng) {
+            if (rings.length < 2) return null;
+
+            // Try to find two lenses with available attachment points
+            const maxAttempts = 50;
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                // Pick two random distinct lenses
+                const lens1Index = Math.floor(rng() * rings.length);
+                let lens2Index = Math.floor(rng() * rings.length);
+
+                // Ensure different lenses
+                if (lens1Index === lens2Index) {
+                    lens2Index = (lens2Index + 1) % rings.length;
+                }
+
+                // Get available positions for each lens
+                const positions = ['L', 'C', 'R'];
+                const availablePos1 = positions.filter(p => !occupiedPoints[lens1Index].has(p));
+                const availablePos2 = positions.filter(p => !occupiedPoints[lens2Index].has(p));
+
+                if (availablePos1.length > 0 && availablePos2.length > 0) {
+                    // Pick random available positions
+                    const pos1 = availablePos1[Math.floor(rng() * availablePos1.length)];
+                    const pos2 = availablePos2[Math.floor(rng() * availablePos2.length)];
+
+                    // Mark as occupied
+                    occupiedPoints[lens1Index].add(pos1);
+                    occupiedPoints[lens2Index].add(pos2);
+
+                    return {
+                        lens1Index: lens1Index,
+                        lens1Position: pos1,
+                        lens2Index: lens2Index,
+                        lens2Position: pos2
+                    };
+                }
+            }
+
+            return null; // Couldn't find available positions
+        }
+
+        // Get the attachment point coordinates for a bridge
+        function getBridgeAttachmentPoint(lens, position, legOffset) {
+            switch(position) {
+                case 'L':
+                    // Left edge
+                    return {
+                        x: lens.x - (lens.radius - legOffset),
+                        y: lens.y
+                    };
+                case 'C':
+                    // Center bottom
+                    return {
+                        x: lens.x,
+                        y: lens.y + (lens.radius - legOffset)
+                    };
+                case 'R':
+                    // Right edge
+                    return {
+                        x: lens.x + (lens.radius - legOffset),
+                        y: lens.y
+                    };
+            }
         }
 
         // Cycle to next color palette
@@ -523,16 +721,20 @@
             // Create JSON structure compatible with Python pipeline
             const jsonData = {
                 layers: [{
-                    frames: rings.map(ring => ({
-                        radius: ring.radius,
-                        position: {
-                            x: ring.x,
-                            y: ring.y
-                        },
-                        color: ring.color,
-                        legType: ring.legType
-                    }))
+                    frames: rings.map(ring => {
+                        return {
+                            radius: ring.radius,
+                            position: {
+                                x: ring.x,
+                                y: ring.y
+                            },
+                            color: ring.color,
+                            legType: ring.legType,
+                            adjacentRingIndex: ring.adjacentRingIndex !== undefined ? ring.adjacentRingIndex : -1
+                        };
+                    })
                 }],
+                bridges: bridges || [],
                 anchors: anchors.map(anchor => ({
                     position: {
                         x: anchor.x,
@@ -575,6 +777,9 @@
             // Draw the current canvas content on top
             exportCtx.drawImage(canvas, 0, 0);
 
+            // Create thumbnail (cropped with 20px border)
+            createThumbnail(exportCanvas);
+
             // Convert to PNG and download
             exportCanvas.toBlob((blob) => {
                 const url = URL.createObjectURL(blob);
@@ -586,6 +791,663 @@
             }, 'image/png');
 
             console.log('PNG exported');
+        }
+
+        function createThumbnail(sourceCanvas) {
+            if (rings.length === 0) return;
+
+            // Capture the full 152mm × 152mm workspace (BOUNDARY × BOUNDARY)
+            const workspaceSize = BOUNDARY * SCALE; // 152mm × 3.5 = 532px
+
+            // Calculate workspace bounds centered on canvas
+            const minX = CENTER_X - (workspaceSize / 2);
+            const minY = CENTER_Y - (workspaceSize / 2);
+
+            // Create thumbnail canvas (200×200px for the 152×152mm workspace)
+            const thumbCanvas = document.createElement('canvas');
+            thumbCanvas.width = 200;
+            thumbCanvas.height = 200;
+            const thumbCtx = thumbCanvas.getContext('2d');
+
+            // Draw workspace region scaled down to 200×200
+            thumbCtx.drawImage(
+                sourceCanvas,
+                minX, minY, workspaceSize, workspaceSize,
+                0, 0, 200, 200
+            );
+
+            // Convert to data URL
+            const dataURL = thumbCanvas.toDataURL('image/png');
+
+            // Add to thumbnails array (max 4)
+            thumbnails.push({
+                dataURL: dataURL,
+                seed: currentSeed
+            });
+
+            // Keep only last 6
+            if (thumbnails.length > 6) {
+                thumbnails.shift();
+            }
+
+            // Update gallery display
+            updateThumbnailGallery();
+        }
+
+        function updateThumbnailGallery() {
+            const gallery = document.getElementById('thumbnail-gallery');
+            gallery.innerHTML = '';
+
+            thumbnails.forEach((thumb, index) => {
+                const item = document.createElement('div');
+                item.className = 'thumbnail-item';
+
+                const img = document.createElement('img');
+                img.className = 'thumbnail-image';
+                img.src = thumb.dataURL;
+
+                const label = document.createElement('div');
+                label.className = 'thumbnail-label';
+                label.textContent = `Seed: ${thumb.seed}`;
+
+                item.appendChild(img);
+                item.appendChild(label);
+                gallery.appendChild(item);
+            });
+        }
+
+        function exportLensSVG() {
+            if (rings.length === 0) {
+                console.log('No lenses to export');
+                return;
+            }
+
+            // Color hex to name mapping
+            const colorNames = {
+                '#F4E8A0': 'Yellow',
+                '#E8C5A0': 'Orange',
+                '#E8C4D5': 'Pink',
+                '#A0B0E8': 'Blue',
+                '#C4A0E8': 'Purple',
+                '#999999': 'Gray',
+                '#E89090': 'Red'
+            };
+
+            // 8" x 10" canvas in mm (203.2mm x 254mm)
+            const canvasWidth = 203.2;
+            const canvasHeight = 254;
+
+            // Calculate composition bounds to center it on canvas
+            let minX = Infinity, maxX = -Infinity;
+            let minY = Infinity, maxY = -Infinity;
+            rings.forEach(ring => {
+                minX = Math.min(minX, ring.x - ring.radius);
+                maxX = Math.max(maxX, ring.x + ring.radius);
+                minY = Math.min(minY, ring.y - ring.radius);
+                maxY = Math.max(maxY, ring.y + ring.radius);
+            });
+
+            const compositionWidth = maxX - minX;
+            const compositionHeight = maxY - minY;
+            const compositionCenterX = (minX + maxX) / 2;
+            const compositionCenterY = (minY + maxY) / 2;
+
+            // Center offset for SVG
+            const offsetX = canvasWidth / 2 - compositionCenterX;
+            const offsetY = canvasHeight / 2 - compositionCenterY;
+
+            // Start SVG
+            let svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="${canvasWidth}mm" height="${canvasHeight}mm" viewBox="0 0 ${canvasWidth} ${canvasHeight}" xmlns="http://www.w3.org/2000/svg">
+  <rect width="${canvasWidth}" height="${canvasHeight}" fill="white"/>
+
+`;
+
+            // Add each lens as a circle with label
+            rings.forEach((ring, index) => {
+                const cx = ring.x + offsetX;
+                const cy = ring.y + offsetY;
+                const r = ring.radius;
+                const diameter = (r * 2).toFixed(2);
+                const colorName = colorNames[ring.color] || ring.color;
+
+                // Circle with color fill and black stroke
+                svg += `  <!-- Lens ${index + 1} -->\n`;
+                svg += `  <circle cx="${cx.toFixed(3)}" cy="${cy.toFixed(3)}" r="${r.toFixed(3)}" fill="${ring.color}" stroke="black" stroke-width="0.5"/>\n`;
+
+                // Text label - diameter and color
+                svg += `  <text x="${cx.toFixed(3)}" y="${cy.toFixed(3)}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="8" fill="black">\n`;
+                svg += `    ${diameter}mm / ${colorName}\n`;
+                svg += `  </text>\n\n`;
+            });
+
+            // Close SVG
+            svg += `</svg>`;
+
+            // Download SVG file
+            const blob = new Blob([svg], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `lens_template_${currentSeed}.svg`;
+            link.click();
+            URL.revokeObjectURL(url);
+
+            console.log(`Lens SVG exported: ${rings.length} lenses`);
+        }
+
+        function exportAllFiles() {
+            if (rings.length === 0) {
+                console.log('No composition to export');
+                return;
+            }
+
+            console.log('Exporting all files...');
+
+            // Export PNG (also creates thumbnail)
+            exportPNG();
+
+            // Export JSON
+            exportJSON();
+
+            // Export SVG
+            exportLensSVG();
+
+            // Export SCAD
+            exportSCAD();
+
+            console.log('All files exported!');
+        }
+
+        function exportSCAD() {
+            if (rings.length === 0) {
+                console.log('No composition to export as SCAD');
+                return;
+            }
+
+            // Generate OpenSCAD script
+            const frames = rings.map(ring => ({
+                radius: ring.radius,
+                position: { x: ring.x, y: ring.y },
+                legType: ring.legType,
+                adjacentRingIndex: ring.adjacentRingIndex !== undefined ? ring.adjacentRingIndex : -1
+            }));
+
+            const anchorsData = anchors.map(anchor => ({
+                position: { x: anchor.x, y: anchor.y },
+                radius: anchor.radius
+            }));
+
+            let scad = `// SONAR 3D Composition - OpenSCAD Export
+// Generated: ${new Date().toISOString()}
+// Source: seed_${currentSeed}
+
+// ========================================
+// EXPORT OPTIONS - Toggle what to generate
+// ========================================
+
+EXPORT_STRUCTURE = true;   // Frame structure with legs/bridges/anchors
+EXPORT_WASHERS = false;    // Lens washers (set to true, structure to false)
+
+// ========================================
+// PHYSICAL CONSTANTS (all units in mm)
+// ========================================
+
+frame_height = 3.175;      // Thickness of lens frames
+frame_width = 1.2;         // Wall thickness
+channel_depth = 1.5875;    // Depth of lens channel
+anchor_diameter = 6.36;    // Anchor outer diameter
+anchor_hole_size = 2.8;    // Square hole in anchor
+leg_width = 1.2;           // Leg thickness
+ground_y = 76;             // Ground plane Y coordinate
+overlap = 0.1;             // Small overlap for CSG union operations
+
+// Rendering quality ($fn = segments for curves)
+$fn = 80;
+
+// ========================================
+// MAIN COMPOSITION
+// ========================================
+
+if (EXPORT_STRUCTURE) {
+    difference() {
+        all_solids();
+        all_voids();
+    }
+}
+
+if (EXPORT_WASHERS) {
+    washers();
+}
+
+// ========================================
+// ALL SOLID PARTS
+// ========================================
+
+module all_solids() {
+    union() {
+        // Lens frame outer cylinders
+        lens_frames_outer();
+
+        // Legs
+        legs();
+
+        // Bridges
+        bridges();
+
+        // Anchor outer cylinders
+        anchors_outer();
+    }
+}
+
+// ========================================
+// ALL VOID PARTS (CUTOUTS)
+// ========================================
+
+module all_voids() {
+    union() {
+        // Lens channels
+        lens_channels();
+
+        // Lens inner holes
+        lens_holes();
+
+        // Anchor square holes
+        anchor_holes();
+    }
+}
+
+// ========================================
+// LENS FRAMES (OUTER CYLINDERS)
+// ========================================
+
+module lens_frames_outer() {
+`;
+
+            // Generate lens frame outer cylinders
+            frames.forEach((frame, index) => {
+                const x = frame.position.x;
+                const y = frame.position.y;
+                const r = frame.radius + 0.1; // Add overlap for CSG union
+                scad += `    // Lens ${index + 1}: r=${frame.radius.toFixed(2)}mm at (${x.toFixed(2)}, ${y.toFixed(2)})\n`;
+                scad += `    translate([${x.toFixed(3)}, ${y.toFixed(3)}, 0])\n`;
+                scad += `        cylinder(r=${r.toFixed(3)}, h=frame_height);\n\n`;
+            });
+
+            scad += `}
+
+// ========================================
+// LENS CHANNELS (VOIDS)
+// ========================================
+
+module lens_channels() {
+`;
+
+            // Generate lens channels
+            frames.forEach((frame, index) => {
+                const x = frame.position.x;
+                const y = frame.position.y;
+                const channelRadius = frame.radius - 1.2;
+                scad += `    // Lens ${index + 1} channel\n`;
+                scad += `    translate([${x.toFixed(3)}, ${y.toFixed(3)}, channel_depth])\n`;
+                scad += `        cylinder(r=${channelRadius.toFixed(3)}, h=frame_height);\n\n`;
+            });
+
+            scad += `}
+
+// ========================================
+// LENS INNER HOLES (VOIDS)
+// ========================================
+
+module lens_holes() {
+`;
+
+            // Generate lens inner holes
+            frames.forEach((frame, index) => {
+                const x = frame.position.x;
+                const y = frame.position.y;
+                const innerRadius = frame.radius - 2.4;
+                scad += `    // Lens ${index + 1} inner hole\n`;
+                scad += `    translate([${x.toFixed(3)}, ${y.toFixed(3)}, -0.5])\n`;
+                scad += `        cylinder(r=${innerRadius.toFixed(3)}, h=frame_height + 1);\n\n`;
+            });
+
+            scad += `}
+
+// ========================================
+// LEGS
+// ========================================
+
+module legs() {
+`;
+
+            // Generate legs (copying logic from scadx.html)
+            frames.forEach((frame, index) => {
+                const legType = frame.legType;
+                if (legType === 'none') return;
+
+                const x = frame.position.x;
+                const y = frame.position.y;
+                const r = frame.radius;
+                const legOffset = 0.6;
+
+                scad += `    // Leg for lens ${index + 1}: type=${legType}\n`;
+
+                switch (legType) {
+                    case 'single':
+                        const singleLegHeight = 76 - (y - r) + 0.1;
+                        if (singleLegHeight > 0) {
+                            const legStartY = y - r;
+                            scad += `    translate([${(x - 0.6).toFixed(3)}, ${legStartY.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${singleLegHeight.toFixed(3)}, frame_height]);\n\n`;
+                        }
+                        break;
+
+                    case 'double':
+                        const leftX = x - (r - legOffset);
+                        const rightX = x + (r - legOffset);
+                        const doubleLegHeight = 76 - y + 0.1;
+                        if (doubleLegHeight > 0) {
+                            scad += `    translate([${(leftX - 0.6).toFixed(3)}, ${y.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${doubleLegHeight.toFixed(3)}, frame_height]);\n`;
+                            scad += `    translate([${(rightX - 0.6).toFixed(3)}, ${y.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${doubleLegHeight.toFixed(3)}, frame_height]);\n\n`;
+                        }
+                        break;
+
+                    case 'curved_lc':
+                        const leftEdgeX_lc = x - (r - legOffset);
+                        const leftEdgeY_lc = y;
+                        const centerBottomX_lc = x;
+                        const centerBottomY_lc = y + (r - legOffset);
+
+                        const arcRadius_lc = (centerBottomX_lc - leftEdgeX_lc) / 2;
+                        const arcCenterX_lc = leftEdgeX_lc + arcRadius_lc;
+                        const arcCenterY_lc = 76 - arcRadius_lc;
+
+                        if (arcCenterY_lc > y + r) {
+                            const leftLegHeight_lc = arcCenterY_lc - leftEdgeY_lc + 0.1;
+                            scad += `    // curved_lc: Left vertical\n`;
+                            scad += `    translate([${(leftEdgeX_lc - 0.6).toFixed(3)}, ${leftEdgeY_lc.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${leftLegHeight_lc.toFixed(3)}, frame_height]);\n\n`;
+
+                            const centerLegHeight_lc = arcCenterY_lc - centerBottomY_lc + 0.1;
+                            scad += `    // curved_lc: Center vertical\n`;
+                            scad += `    translate([${(centerBottomX_lc - 0.6).toFixed(3)}, ${centerBottomY_lc.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${centerLegHeight_lc.toFixed(3)}, frame_height]);\n\n`;
+
+                            scad += `    // curved_lc: U-shaped arc\n`;
+                            scad += `    translate([${arcCenterX_lc.toFixed(3)}, ${arcCenterY_lc.toFixed(3)}, 0])\n`;
+                            scad += `        rotate([0, 0, 0])\n`;
+                            scad += `        rotate_extrude(angle=180)\n`;
+                            scad += `        translate([${(arcRadius_lc - 0.6).toFixed(3)}, 0, 0])\n`;
+                            scad += `        square([leg_width, frame_height], center=false);\n\n`;
+                        }
+                        break;
+
+                    case 'curved_cr':
+                        const centerBottomX_cr = x;
+                        const centerBottomY_cr = y + (r - legOffset);
+                        const rightEdgeX_cr = x + (r - legOffset);
+                        const rightEdgeY_cr = y;
+
+                        const arcRadius_cr = (rightEdgeX_cr - centerBottomX_cr) / 2;
+                        const arcCenterX_cr = centerBottomX_cr + arcRadius_cr;
+                        const arcCenterY_cr = 76 - arcRadius_cr;
+
+                        if (arcCenterY_cr > y + r) {
+                            const centerLegHeight_cr = arcCenterY_cr - centerBottomY_cr + 0.1;
+                            scad += `    // curved_cr: Center vertical\n`;
+                            scad += `    translate([${(centerBottomX_cr - 0.6).toFixed(3)}, ${centerBottomY_cr.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${centerLegHeight_cr.toFixed(3)}, frame_height]);\n\n`;
+
+                            const rightLegHeight_cr = arcCenterY_cr - rightEdgeY_cr + 0.1;
+                            scad += `    // curved_cr: Right vertical\n`;
+                            scad += `    translate([${(rightEdgeX_cr - 0.6).toFixed(3)}, ${rightEdgeY_cr.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${rightLegHeight_cr.toFixed(3)}, frame_height]);\n\n`;
+
+                            scad += `    // curved_cr: U-shaped arc\n`;
+                            scad += `    translate([${arcCenterX_cr.toFixed(3)}, ${arcCenterY_cr.toFixed(3)}, 0])\n`;
+                            scad += `        rotate([0, 0, 0])\n`;
+                            scad += `        rotate_extrude(angle=180)\n`;
+                            scad += `        translate([${(arcRadius_cr - 0.6).toFixed(3)}, 0, 0])\n`;
+                            scad += `        square([leg_width, frame_height], center=false);\n\n`;
+                        }
+                        break;
+
+                    case 'curved_lr':
+                        const leftEdgeX_lr = x - (r - legOffset);
+                        const leftEdgeY_lr = y;
+                        const rightEdgeX_lr = x + (r - legOffset);
+                        const rightEdgeY_lr = y;
+
+                        const arcRadius_lr = (rightEdgeX_lr - leftEdgeX_lr) / 2;
+                        const arcCenterX_lr = x;
+                        const arcCenterY_lr = 76 - arcRadius_lr;
+
+                        if (arcCenterY_lr > y + r) {
+                            const leftLegHeight_lr = arcCenterY_lr - leftEdgeY_lr + 0.1;
+                            scad += `    // curved_lr: Left vertical\n`;
+                            scad += `    translate([${(leftEdgeX_lr - 0.6).toFixed(3)}, ${leftEdgeY_lr.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${leftLegHeight_lr.toFixed(3)}, frame_height]);\n\n`;
+
+                            const rightLegHeight_lr = arcCenterY_lr - rightEdgeY_lr + 0.1;
+                            scad += `    // curved_lr: Right vertical\n`;
+                            scad += `    translate([${(rightEdgeX_lr - 0.6).toFixed(3)}, ${rightEdgeY_lr.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${rightLegHeight_lr.toFixed(3)}, frame_height]);\n\n`;
+
+                            scad += `    // curved_lr: Wide U-shaped arc\n`;
+                            scad += `    translate([${arcCenterX_lr.toFixed(3)}, ${arcCenterY_lr.toFixed(3)}, 0])\n`;
+                            scad += `        rotate([0, 0, 0])\n`;
+                            scad += `        rotate_extrude(angle=180)\n`;
+                            scad += `        translate([${(arcRadius_lr - 0.6).toFixed(3)}, 0, 0])\n`;
+                            scad += `        square([leg_width, frame_height], center=false);\n\n`;
+                        }
+                        break;
+
+                    case 'curved_adjacent':
+                        if (frame.adjacentRingIndex !== -1 && frame.adjacentRingIndex < frames.length) {
+                            const adjacent = frames[frame.adjacentRingIndex];
+                            const dx = adjacent.position.x - x;
+                            const dy = adjacent.position.y - y;
+                            const dist = Math.sqrt(dx * dx + dy * dy);
+
+                            const tangentX = x + (dx / dist) * r;
+                            const tangentY = y + (dy / dist) * r;
+
+                            const legSpacing = 3;
+                            const leg1X = tangentX - legSpacing / 2;
+                            const leg2X = tangentX + legSpacing / 2;
+
+                            const bridgeArcRadius = legSpacing / 2;
+                            const bridgeArcCenterY = 76 - bridgeArcRadius;
+
+                            const ring1Bottom = y + r;
+                            const ring2Bottom = adjacent.position.y + adjacent.radius;
+
+                            if (bridgeArcCenterY > ring1Bottom && bridgeArcCenterY > ring2Bottom) {
+                                const leg1Height = bridgeArcCenterY - tangentY + 0.1;
+                                scad += `    // curved_adjacent: Left vertical\n`;
+                                scad += `    translate([${(leg1X - 0.6).toFixed(3)}, ${tangentY.toFixed(3)}, 0])\n`;
+                                scad += `        cube([leg_width, ${leg1Height.toFixed(3)}, frame_height]);\n\n`;
+
+                                const leg2Height = bridgeArcCenterY - tangentY + 0.1;
+                                scad += `    // curved_adjacent: Right vertical\n`;
+                                scad += `    translate([${(leg2X - 0.6).toFixed(3)}, ${tangentY.toFixed(3)}, 0])\n`;
+                                scad += `        cube([leg_width, ${leg2Height.toFixed(3)}, frame_height]);\n\n`;
+
+                                scad += `    // curved_adjacent: Bridge arc\n`;
+                                scad += `    translate([${tangentX.toFixed(3)}, ${bridgeArcCenterY.toFixed(3)}, 0])\n`;
+                                scad += `        rotate([0, 0, 0])\n`;
+                                scad += `        rotate_extrude(angle=180)\n`;
+                                scad += `        translate([${(bridgeArcRadius - 0.6).toFixed(3)}, 0, 0])\n`;
+                                scad += `        square([leg_width, frame_height], center=false);\n\n`;
+                            }
+                        } else {
+                            const fallbackLegHeight = 76 - (y - r) + 0.1;
+                            if (fallbackLegHeight > 0) {
+                                const legStartY = y - r;
+                                scad += `    // curved_adjacent: No adjacent ring, using straight leg\n`;
+                                scad += `    translate([${(x - 0.6).toFixed(3)}, ${legStartY.toFixed(3)}, 0])\n`;
+                                scad += `        cube([leg_width, ${fallbackLegHeight.toFixed(3)}, frame_height]);\n\n`;
+                            }
+                        }
+                        break;
+                }
+            });
+
+            scad += `}
+
+// ========================================
+// BRIDGES (Random lens-to-lens connections)
+// ========================================
+
+module bridges() {
+`;
+
+            // Generate bridges if they exist
+            if (bridges && bridges.length > 0) {
+                bridges.forEach((bridge, bridgeIndex) => {
+                    const lens1 = frames[bridge.lens1Index];
+                    const lens2 = frames[bridge.lens2Index];
+
+                    if (!lens1 || !lens2) return;
+
+                    scad += `    // Bridge ${bridgeIndex + 1}: lens ${bridge.lens1Index + 1}[${bridge.lens1Position}] to lens ${bridge.lens2Index + 1}[${bridge.lens2Position}]\n`;
+
+                    const legOffset = 0.6;
+                    const point1 = getBridgeAttachmentPointForSCAD(lens1, bridge.lens1Position, legOffset);
+                    const point2 = getBridgeAttachmentPointForSCAD(lens2, bridge.lens2Position, legOffset);
+
+                    const x1 = point1.x;
+                    const y1 = point1.y;
+                    const x2 = point2.x;
+                    const y2 = point2.y;
+
+                    const arcRadius = Math.abs(x2 - x1) / 2;
+                    const arcCenterX = (x1 + x2) / 2;
+                    const arcCenterY = 76 - arcRadius;
+
+                    const lens1Bottom = lens1.position.y + lens1.radius;
+                    const lens2Bottom = lens2.position.y + lens2.radius;
+
+                    if (arcCenterY > lens1Bottom && arcCenterY > lens2Bottom && arcRadius > 0) {
+                        const leg1Height = arcCenterY - y1 + 0.1;
+                        if (leg1Height > 0) {
+                            scad += `    translate([${(x1 - 0.6).toFixed(3)}, ${y1.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${leg1Height.toFixed(3)}, frame_height]);\n\n`;
+                        }
+
+                        const leg2Height = arcCenterY - y2 + 0.1;
+                        if (leg2Height > 0) {
+                            scad += `    translate([${(x2 - 0.6).toFixed(3)}, ${y2.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${leg2Height.toFixed(3)}, frame_height]);\n\n`;
+                        }
+
+                        scad += `    translate([${arcCenterX.toFixed(3)}, ${arcCenterY.toFixed(3)}, 0])\n`;
+                        scad += `        rotate([0, 0, 0])\n`;
+                        scad += `        rotate_extrude(angle=180)\n`;
+                        scad += `        translate([${(arcRadius - 0.6).toFixed(3)}, 0, 0])\n`;
+                        scad += `        square([leg_width, frame_height], center=false);\n\n`;
+                    }
+                });
+            }
+
+            scad += `}
+
+// ========================================
+// ANCHORS
+// ========================================
+
+module anchors_outer() {
+`;
+
+            // Generate anchor outer cylinders
+            anchorsData.forEach((anchor, index) => {
+                const x = anchor.position.x;
+                const y = anchor.position.y;
+                scad += `    // Anchor ${index + 1}\n`;
+                scad += `    translate([${x.toFixed(3)}, ${y.toFixed(3)}, 0])\n`;
+                scad += `        cylinder(r=anchor_diameter/2 + overlap, h=frame_height);\n\n`;
+            });
+
+            scad += `}
+
+module anchor_holes() {
+`;
+
+            // Generate anchor square holes
+            anchorsData.forEach((anchor, index) => {
+                const x = anchor.position.x;
+                const y = anchor.position.y;
+                scad += `    // Anchor hole ${index + 1}\n`;
+                scad += `    translate([${(x - 1.4).toFixed(3)}, ${(y - 1.4).toFixed(3)}, -0.5])\n`;
+                scad += `        cube([anchor_hole_size, anchor_hole_size, frame_height + 2]);\n\n`;
+            });
+
+            scad += `}
+
+// ========================================
+// LENS WASHERS (for holding lenses in place)
+// ========================================
+
+module washers() {
+`;
+
+            // Generate washers for each lens
+            frames.forEach((frame, index) => {
+                const x = frame.position.x;
+                const y = frame.position.y;
+                const outerRadius = frame.radius - 1.2;
+                const innerRadius = outerRadius - 1.2;
+                const washerHeight = 1.5875;
+
+                scad += `    // Washer for lens ${index + 1}\n`;
+                scad += `    translate([${x.toFixed(3)}, ${y.toFixed(3)}, 0])\n`;
+                scad += `        difference() {\n`;
+                scad += `            cylinder(r=${outerRadius.toFixed(3)}, h=${washerHeight.toFixed(4)});\n`;
+                scad += `            translate([0, 0, -0.5])\n`;
+                scad += `                cylinder(r=${innerRadius.toFixed(3)}, h=${(washerHeight + 1).toFixed(4)});\n`;
+                scad += `        }\n\n`;
+            });
+
+            scad += `}
+
+// ========================================
+// END OF SCRIPT
+// ========================================
+`;
+
+            // Download SCAD file
+            const blob = new Blob([scad], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `composition_${currentSeed}.scad`;
+            link.click();
+            URL.revokeObjectURL(url);
+
+            console.log('OpenSCAD script exported');
+        }
+
+        function getBridgeAttachmentPointForSCAD(lens, position, legOffset) {
+            switch(position) {
+                case 'L':
+                    return {
+                        x: lens.position.x - (lens.radius - legOffset),
+                        y: lens.position.y
+                    };
+                case 'C':
+                    return {
+                        x: lens.position.x,
+                        y: lens.position.y + (lens.radius - legOffset)
+                    };
+                case 'R':
+                    return {
+                        x: lens.position.x + (lens.radius - legOffset),
+                        y: lens.position.y
+                    };
+            }
         }
 
         function step() {
@@ -736,6 +1598,50 @@
             // Clear with white
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw ground plane guide (soft gray, not exported)
+            const groundY = CENTER_Y + (BOUNDARY / 2) * SCALE;
+            ctx.strokeStyle = '#cccccc';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(0, groundY);
+            ctx.lineTo(canvas.width, groundY);
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset dash
+
+            // Draw ground plane label
+            ctx.fillStyle = '#999999';
+            ctx.font = '12px Courier New';
+            ctx.textAlign = 'left';
+            ctx.fillText('GROUND PLANE (Y=+76mm)', 10, groundY - 5);
+
+            // Draw center axes (soft gray, not exported)
+            ctx.strokeStyle = '#dddddd';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 3]);
+
+            // Vertical axis (Y-axis)
+            ctx.beginPath();
+            ctx.moveTo(CENTER_X, 0);
+            ctx.lineTo(CENTER_X, canvas.height);
+            ctx.stroke();
+
+            // Horizontal axis (X-axis)
+            ctx.beginPath();
+            ctx.moveTo(0, CENTER_Y);
+            ctx.lineTo(canvas.width, CENTER_Y);
+            ctx.stroke();
+
+            ctx.setLineDash([]); // Reset dash
+
+            // Draw axis labels
+            ctx.fillStyle = '#aaaaaa';
+            ctx.font = '11px Courier New';
+            ctx.textAlign = 'center';
+            ctx.fillText('X=0', CENTER_X, CENTER_Y - 5);
+            ctx.textAlign = 'left';
+            ctx.fillText('Y=0', CENTER_X + 5, CENTER_Y + 12);
 
             // Draw legs (if enabled)
             const showLegs = document.getElementById('showLegs').checked;
@@ -947,6 +1853,67 @@
                 });
             }
 
+            // Draw bridges
+            if (bridges && bridges.length > 0) {
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 1.2 * SCALE;
+                ctx.lineCap = 'butt';
+
+                const legOffset = 0.6; // mm
+                const groundY = CENTER_Y + (BOUNDARY / 2) * SCALE;
+
+                bridges.forEach((bridge, bridgeIndex) => {
+                    const lens1 = rings[bridge.lens1Index];
+                    const lens2 = rings[bridge.lens2Index];
+
+                    // Safety check: skip if lenses don't exist
+                    if (!lens1 || !lens2) return;
+
+                    // Get attachment points for lens 1
+                    const {x: x1, y: y1} = getBridgeAttachmentPoint(lens1, bridge.lens1Position, legOffset);
+                    // Get attachment points for lens 2
+                    const {x: x2, y: y2} = getBridgeAttachmentPoint(lens2, bridge.lens2Position, legOffset);
+
+                    // Convert to canvas coordinates
+                    const canvasX1 = CENTER_X + x1 * SCALE;
+                    const canvasY1 = CENTER_Y + y1 * SCALE;
+                    const canvasX2 = CENTER_X + x2 * SCALE;
+                    const canvasY2 = CENTER_Y + y2 * SCALE;
+
+                    // Calculate arc parameters
+                    const arcRadius = Math.abs(canvasX2 - canvasX1) / 2;
+                    const arcCenterX = (canvasX1 + canvasX2) / 2;
+                    const arcCenterY = groundY - arcRadius;
+
+                    // Only draw if arc center is below both lenses
+                    const lens1Bottom = CENTER_Y + (lens1.y + lens1.radius) * SCALE;
+                    const lens2Bottom = CENTER_Y + (lens2.y + lens2.radius) * SCALE;
+
+                    if (arcCenterY > lens1Bottom && arcCenterY > lens2Bottom) {
+                        // Draw vertical leg 1
+                        ctx.beginPath();
+                        ctx.moveTo(canvasX1, canvasY1);
+                        ctx.lineTo(canvasX1, arcCenterY);
+                        ctx.stroke();
+
+                        // Draw vertical leg 2
+                        ctx.beginPath();
+                        ctx.moveTo(canvasX2, canvasY2);
+                        ctx.lineTo(canvasX2, arcCenterY);
+                        ctx.stroke();
+
+                        // Draw arc connecting them
+                        ctx.beginPath();
+                        if (canvasX1 < canvasX2) {
+                            ctx.arc(arcCenterX, arcCenterY, arcRadius, 0, Math.PI, false);
+                        } else {
+                            ctx.arc(arcCenterX, arcCenterY, arcRadius, Math.PI, 0, true);
+                        }
+                        ctx.stroke();
+                    }
+                });
+            }
+
             // Draw rings with frame structure
             const showColors = document.getElementById('showColors').checked;
             const stealthMode = document.getElementById('stealthMode').checked;
@@ -1138,6 +2105,9 @@
                 draggedAnchor.x = pos.x;
                 draggedAnchor.y = pos.y;
 
+                // Clear bridges BEFORE regenerating rings to prevent draw() errors
+                bridges = [];
+
                 // Regenerate rings with new anchor positions
                 rings = [];
                 attempts = 0;
@@ -1145,6 +2115,9 @@
                 for (let i = 0; i < 10; i++) {
                     step();
                 }
+
+                // Regenerate legs and bridges for new ring positions
+                regenerateLegs();
             } else {
                 // Update cursor based on hover
                 const hoverAnchor = findAnchorAtPoint(pos.x, pos.y);
@@ -1177,6 +2150,13 @@
                 e.preventDefault();
                 if (selectedLens) {
                     selectedLens.legType = 'none';
+
+                    // Clear occupied points for this lens
+                    const lensIndex = rings.indexOf(selectedLens);
+                    if (lensIndex !== -1 && occupiedPoints[lensIndex]) {
+                        occupiedPoints[lensIndex].clear();
+                    }
+
                     console.log('Removed legs from selected lens');
                     draw();
                 }
@@ -1188,6 +2168,18 @@
                     const currentIndex = legTypes.indexOf(selectedLens.legType);
                     const nextIndex = (currentIndex + 1) % legTypes.length;
                     selectedLens.legType = legTypes[nextIndex];
+
+                    // Update occupied points for this lens
+                    const lensIndex = rings.indexOf(selectedLens);
+                    if (lensIndex !== -1) {
+                        if (!occupiedPoints[lensIndex]) {
+                            occupiedPoints[lensIndex] = new Set();
+                        } else {
+                            occupiedPoints[lensIndex].clear();
+                        }
+                        markAttachmentPoints(lensIndex, selectedLens.legType);
+                    }
+
                     console.log(`Changed leg type to: ${selectedLens.legType}`);
                     draw();
                 }
