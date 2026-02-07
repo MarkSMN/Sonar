@@ -1,14 +1,9 @@
-# MacOS
+# Large STL test files (exceed GitHub 100MB limit)
+Learning files/**/*.stl
+test files/**/*.stl
+
+# OS files
 .DS_Store
 
-# Node modules (if you add any later)
-node_modules/
-
-# Learning and development files
-Learning files/
-fullcode/
-screenshots/
-
-# Test files (don't deploy these)
-test.html
-index-custom.html
+# Other large binaries
+*.ai

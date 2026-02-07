@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SONAR - 3D Exporter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+            display: flex;
+            height: 100vh;
+            background: #000000;
+        }
+        #canvas-container {
+            flex: 1;
+            background: #1a1a1a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        #sidebar {
+            width: 300px;
+            background: #1a1a1a;
+            color: #cccccc;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        #sidebar h1 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            letter-spacing: 1px;
+            color: #ffffff;
+        }
+        .section {
+            margin-bottom: 20px;
+        }
+        .section-title {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            margin-bottom: 10px;
+            color: #888888;
+        }
+        button {
+            background: #2a2a2a;
+            color: #cccccc;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 12px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 12px;
+            font-weight: 500;
+            transition: background 0.2s;
+            width: 100%;
+            text-align: left;
+        }
+        button:hover {
+            background: #333333;
+            color: #ffffff;
+        }
+        button:active {
+            background: #3a3a3a;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            font-size: 12px;
+        }
+        .info-label {
+            color: #888888;
+        }
+        .info-value {
+            color: #cccccc;
+            font-weight: 500;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        #status {
+            font-size: 12px;
+            color: #999999;
+            padding: 10px;
+            background: #0a0a0a;
+            border-radius: 4px;
+            min-height: 100px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', Courier, monospace;
+            line-height: 1.4;
+        }
+        .status-line {
+            margin-bottom: 4px;
+        }
+        .status-success {
+            color: #4ade80;
+        }
+        .status-error {
+            color: #f87171;
+        }
+        .status-info {
+            color: #60a5fa;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+
+    <div id="sidebar">
+        <h1>SONAR 3D</h1>
+
+        <div class="section">
+            <div class="section-title">Import</div>
+            <button onclick="document.getElementById('fileInput').click()">Load JSON</button>
+            <button onclick="loadTestJSON()">Load Test File</button>
+            <button onclick="loadSimpleJSON()">Load Simple Test</button>
+            <input type="file" id="fileInput" accept=".json" onchange="loadJSON(event)">
+        </div>
+
+        <div class="section">
+            <div class="section-title">Generate</div>
+            <button onclick="generateGeometry()" id="generateBtn" disabled>Build 3D Model</button>
+            <button onclick="exportSTL()" id="exportBtn" disabled>Export STL</button>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Model Info</div>
+            <div class="info-row">
+                <span class="info-label">Lenses</span>
+                <span class="info-value" id="lens-count">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Anchors</span>
+                <span class="info-value" id="anchor-count">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Legs</span>
+                <span class="info-value" id="leg-count">-</span>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Status</div>
+            <div id="status">
+                <div class="status-line status-info">Ready. Load a JSON file to begin.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Three.js from CDN -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { STLExporter } from 'three/addons/exporters/STLExporter.js';
+
+        // Make THREE global for CSG libraries
+        window.THREE = THREE;
+
+        // Three.js setup
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a1a);
+
+        const camera = new THREE.PerspectiveCamera(
+            45,
+            container.clientWidth / container.clientHeight,
+            0.1,
+            1000
+        );
+        camera.position.set(0, 150, 200);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        container.appendChild(renderer.domElement);
+
+        // OrbitControls
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(10, 20, 10);
+        scene.add(directionalLight);
+
+        // Grid helper
+        const gridHelper = new THREE.GridHelper(400, 40, 0x444444, 0x222222);
+        scene.add(gridHelper);
+
+        // Add axis helpers (simpler approach)
+        const axesHelper = new THREE.AxesHelper(100);
+        scene.add(axesHelper);
+
+        // Global state
+        let jsonData = null;
+        let finalMesh = null;
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+
+        // Camera position hotkeys
+        window.addEventListener('keydown', (e) => {
+            const distance = 200;
+
+            if (e.key === '1') {
+                // Z+ view (looking from positive Z toward origin)
+                camera.position.set(0, 0, distance);
+                controls.target.set(0, 0, 0);
+                controls.update();
+            } else if (e.key === '2') {
+                // Y+ view (looking from positive Y toward origin)
+                camera.position.set(0, distance, 0);
+                controls.target.set(0, 0, 0);
+                controls.update();
+            } else if (e.key === '3') {
+                // X+ view (looking from positive X toward origin)
+                camera.position.set(distance, 0, 0);
+                controls.target.set(0, 0, 0);
+                controls.update();
+            }
+        });
+
+        // Logging helper
+        function logStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            const line = document.createElement('div');
+            line.className = `status-line status-${type}`;
+            line.textContent = message;
+            statusDiv.appendChild(line);
+            statusDiv.scrollTop = statusDiv.scrollHeight;
+            console.log(`[${type}] ${message}`);
+        }
+
+        // Process loaded JSON data
+        function processJSON(data) {
+            jsonData = data;
+            logStatus('JSON loaded successfully', 'success');
+
+            // Update info
+            const lensCount = jsonData.layers?.[0]?.frames?.length || 0;
+            const anchorCount = jsonData.anchors?.length || 0;
+
+            // Count legs
+            const frames = jsonData.layers?.[0]?.frames || [];
+            const legCount = frames.reduce((count, frame) => {
+                if (frame.legType === 'double') return count + 2;
+                if (frame.legType === 'none') return count;
+                return count + 1;
+            }, 0);
+
+            document.getElementById('lens-count').textContent = lensCount;
+            document.getElementById('anchor-count').textContent = anchorCount;
+            document.getElementById('leg-count').textContent = legCount;
+
+            logStatus(`Found ${lensCount} lenses, ${anchorCount} anchors, ${legCount} legs`, 'info');
+        }
+
+        // Load test JSON file
+        window.loadTestJSON = function() {
+            logStatus('Loading test composition...', 'info');
+            fetch('test-composition.json')
+                .then(response => response.json())
+                .then(data => {
+                    processJSON(data);
+                })
+                .catch(error => {
+                    logStatus('Error loading test file: ' + error.message, 'error');
+                });
+        };
+
+        // Load simple test JSON file
+        window.loadSimpleJSON = function() {
+            logStatus('Loading simple test...', 'info');
+            fetch('test-simple.json')
+                .then(response => response.json())
+                .then(data => {
+                    processJSON(data);
+                })
+                .catch(error => {
+                    logStatus('Error loading simple test: ' + error.message, 'error');
+                });
+        };
+
+        // Load JSON file from file picker
+        window.loadJSON = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    processJSON(data);
+                } catch (error) {
+                    logStatus('Error parsing JSON: ' + error.message, 'error');
+                }
+            };
+            reader.readAsText(file);
+        };
+
+        // Generate 3D geometry from JSON
+        window.generateGeometry = function() {
+            if (!jsonData) {
+                logStatus('No JSON data loaded', 'error');
+                return;
+            }
+
+            logStatus('Starting geometry generation...', 'info');
+
+            // Clear previous geometry
+            if (finalMesh) {
+                scene.remove(finalMesh);
+                finalMesh.geometry.dispose();
+                finalMesh.material.dispose();
+            }
+
+            try {
+                // Get data from JSON
+                const frames = jsonData.layers[0].frames;
+                const anchors = jsonData.anchors;
+
+                logStatus(`Building ${frames.length} lens frames + ${anchors.length} anchors...`, 'info');
+
+                // CSG setup
+                const BVHCSG = window.ThreBvhCsg;
+                if (!BVHCSG) {
+                    throw new Error('CSG library not loaded');
+                }
+
+                const Brush = BVHCSG.Brush;
+                const Evaluator = BVHCSG.Evaluator;
+                const SUBTRACTION = BVHCSG.SUBTRACTION;
+                const ADDITION = BVHCSG.ADDITION;
+                const evaluator = new Evaluator();
+
+                // Constants
+                const frameHeight = 3.175; // mm
+                const frameWidth = 1.2; // mm
+                const channelDepth = 1.5875; // mm
+                const anchorDiameter = 6.36; // mm
+                const anchorHoleSize = 2.8; // mm
+                const overlapZone = 0.1; // mm - minimal overlap to reduce CSG artifacts
+                const segments = 32; // Lower segment count reduces CSG edge cases and non-manifold edges
+
+                // DEFERRED BOOLEAN APPROACH: Separate additive and subtractive geometry
+                const additiveGeometry = []; // All solid parts (lens outers, anchor outers, legs)
+                const subtractiveGeometry = []; // All voids (channels, inner holes, anchor holes)
+
+                // === BUILD ALL LENS FRAMES ===
+                logStatus(`Building ${frames.length} lens frames...`, 'info');
+                frames.forEach((frame, index) => {
+                    const radius = frame.radius;
+                    const x = frame.position.x;
+                    const y = frame.position.y;
+
+                    logStatus(`Frame ${index + 1}/${frames.length}: r=${radius.toFixed(1)}mm at (${x.toFixed(1)}, ${y.toFixed(1)})`, 'info');
+
+                    // Outer cylinder (SOLID)
+                    const outerRadius = radius + overlapZone;
+                    const outerGeo = new THREE.CylinderGeometry(outerRadius, outerRadius, frameHeight, segments);
+                    outerGeo.rotateX(Math.PI / 2);
+                    outerGeo.translate(x, y, frameHeight / 2);
+                    additiveGeometry.push(new Brush(outerGeo));
+
+                    // Channel cutout (VOID)
+                    const channelRadius = radius - frameWidth;
+                    const channelGeo = new THREE.CylinderGeometry(channelRadius, channelRadius, channelDepth + 0.01, segments);
+                    channelGeo.rotateX(Math.PI / 2);
+                    channelGeo.translate(x, y, frameHeight - channelDepth / 2);
+                    subtractiveGeometry.push(new Brush(channelGeo));
+
+                    // Inner hole (VOID)
+                    const innerRadius = radius - frameWidth * 2;
+                    const innerGeo = new THREE.CylinderGeometry(innerRadius, innerRadius, frameHeight + 1, segments);
+                    innerGeo.rotateX(Math.PI / 2);
+                    innerGeo.translate(x, y, frameHeight / 2);
+                    subtractiveGeometry.push(new Brush(innerGeo));
+                });
+
+                // === BUILD ALL LEGS ===
+                const legWidth = 1.2; // mm
+
+                logStatus(`Building legs for ${frames.length} frames...`, 'info');
+                frames.forEach((frame, index) => {
+                    const legType = frame.legType;
+                    if (legType === 'none') return;
+
+                    logStatus(`Leg ${index + 1}: type=${legType}`, 'info');
+
+                    const radius = frame.radius;
+                    const x = frame.position.x;
+                    const y = frame.position.y;
+                    const legOffset = 0.6;
+                    const groundY = 76; // Ground plane at Y=+76mm (BOUNDARY/2 = 152/2)
+
+                    switch (legType) {
+                        case 'single':
+                            const singleLegHeight = groundY - (y - radius);
+                            if (singleLegHeight > 0) {
+                                const legGeo = new THREE.BoxGeometry(legWidth, singleLegHeight + overlapZone, frameHeight);
+                                legGeo.translate(x, y - radius + singleLegHeight / 2, frameHeight / 2);
+                                additiveGeometry.push(new Brush(legGeo));
+                            }
+                            break;
+
+                        case 'double':
+                            const leftX = x - (radius - legOffset);
+                            const rightX = x + (radius - legOffset);
+                            const doubleLegHeight = groundY - y;
+
+                            if (doubleLegHeight > 0) {
+                                const leftLegGeo = new THREE.BoxGeometry(legWidth, doubleLegHeight + overlapZone, frameHeight);
+                                leftLegGeo.translate(leftX, y + doubleLegHeight / 2, frameHeight / 2);
+                                additiveGeometry.push(new Brush(leftLegGeo));
+
+                                const rightLegGeo = new THREE.BoxGeometry(legWidth, doubleLegHeight + overlapZone, frameHeight);
+                                rightLegGeo.translate(rightX, y + doubleLegHeight / 2, frameHeight / 2);
+                                additiveGeometry.push(new Brush(rightLegGeo));
+                            }
+                            break;
+
+                        case 'curved_lc':
+                        case 'curved_cr':
+                        case 'curved_lr':
+                            // Curved legs: Create curved path using torus segment
+                            // For now, approximate with straight leg from bottom of lens to ground
+                            // TODO: Implement actual curved geometry
+                            const curvedLegHeight = groundY - (y - radius);
+                            if (curvedLegHeight > 0) {
+                                const curvedLegGeo = new THREE.BoxGeometry(legWidth, curvedLegHeight + overlapZone, frameHeight);
+                                curvedLegGeo.translate(x, y - radius + curvedLegHeight / 2, frameHeight / 2);
+                                additiveGeometry.push(new Brush(curvedLegGeo));
+                                logStatus(`  ⚠ Curved leg approximated as straight (${legType})`, 'info');
+                            }
+                            break;
+
+                        case 'curved_adjacent':
+                            // Curved adjacent: leg curves to connect to adjacent lens
+                            // For now, treat as single straight leg
+                            const adjLegHeight = groundY - (y - radius);
+                            if (adjLegHeight > 0) {
+                                const adjLegGeo = new THREE.BoxGeometry(legWidth, adjLegHeight + overlapZone, frameHeight);
+                                adjLegGeo.translate(x, y - radius + adjLegHeight / 2, frameHeight / 2);
+                                additiveGeometry.push(new Brush(adjLegGeo));
+                                logStatus(`  ⚠ Curved adjacent leg approximated as straight`, 'info');
+                            }
+                            break;
+
+                        default:
+                            logStatus(`  ⚠ Unknown leg type: ${legType}, skipping`, 'error');
+                            break;
+                    }
+                });
+
+                // === BUILD ALL ANCHORS ===
+                logStatus(`Building ${anchors.length} anchors...`, 'info');
+                anchors.forEach((anchor, index) => {
+                    const x = anchor.position.x;
+                    const y = anchor.position.y;
+
+                    // Outer cylinder (SOLID)
+                    const anchorRadius = (anchorDiameter / 2) + overlapZone;
+                    const anchorGeo = new THREE.CylinderGeometry(anchorRadius, anchorRadius, frameHeight, segments);
+                    anchorGeo.rotateX(Math.PI / 2);
+                    anchorGeo.translate(x, y, frameHeight / 2);
+                    additiveGeometry.push(new Brush(anchorGeo));
+
+                    // Square hole (VOID)
+                    const holeGeo = new THREE.BoxGeometry(anchorHoleSize, anchorHoleSize, frameHeight + 1);
+                    holeGeo.translate(x, y, frameHeight / 2);
+                    subtractiveGeometry.push(new Brush(holeGeo));
+                });
+
+                // === STEP 1: UNION ALL SOLID PARTS ===
+                const startTime = Date.now();
+                logStatus(`Step 1: Unioning ${additiveGeometry.length} solid parts... (this may take several minutes)`, 'info');
+                let solidBrush = additiveGeometry[0];
+                for (let i = 1; i < additiveGeometry.length; i++) {
+                    const opStartTime = Date.now();
+                    logStatus(`  Union solid ${i}/${additiveGeometry.length - 1}... (elapsed: ${((Date.now() - startTime) / 1000).toFixed(1)}s)`, 'info');
+                    const newBrush = evaluator.evaluate(solidBrush, additiveGeometry[i], ADDITION);
+                    const opDuration = ((Date.now() - opStartTime) / 1000).toFixed(1);
+                    logStatus(`    ✓ Solid union ${i} completed in ${opDuration}s`, 'success');
+
+                    if (!newBrush || !newBrush.geometry) {
+                        logStatus(`Warning: Solid union ${i} may have failed`, 'error');
+                    } else {
+                        solidBrush = newBrush;
+                    }
+                }
+
+                // === STEP 2: UNION ALL VOIDS ===
+                logStatus(`Step 2: Unioning ${subtractiveGeometry.length} voids...`, 'info');
+                let voidBrush = subtractiveGeometry[0];
+                for (let i = 1; i < subtractiveGeometry.length; i++) {
+                    const opStartTime = Date.now();
+                    logStatus(`  Union void ${i}/${subtractiveGeometry.length - 1}... (elapsed: ${((Date.now() - startTime) / 1000).toFixed(1)}s)`, 'info');
+                    const newBrush = evaluator.evaluate(voidBrush, subtractiveGeometry[i], ADDITION);
+                    const opDuration = ((Date.now() - opStartTime) / 1000).toFixed(1);
+                    logStatus(`    ✓ Void union ${i} completed in ${opDuration}s`, 'success');
+
+                    if (!newBrush || !newBrush.geometry) {
+                        logStatus(`Warning: Void union ${i} may have failed`, 'error');
+                    } else {
+                        voidBrush = newBrush;
+                    }
+                }
+
+                // === STEP 3: SUBTRACT VOIDS FROM SOLID ===
+                logStatus(`Step 3: Subtracting voids from solid...`, 'info');
+                const finalOpStart = Date.now();
+                const finalBrush = evaluator.evaluate(solidBrush, voidBrush, SUBTRACTION);
+                const finalOpDuration = ((Date.now() - finalOpStart) / 1000).toFixed(1);
+                logStatus(`  ✓ Final subtraction completed in ${finalOpDuration}s`, 'success')
+
+                // Convert to mesh and clean up geometry
+                logStatus('Cleaning up geometry...', 'info');
+                const finalGeometry = finalBrush.geometry;
+
+                // Merge vertices to remove duplicates and reduce non-manifold edges
+                finalGeometry.deleteAttribute('uv'); // Remove UV coordinates (not needed for STL)
+                finalGeometry.deleteAttribute('normal'); // Will be recalculated
+
+                // Compute new normals for proper shading
+                finalGeometry.computeVertexNormals();
+
+                const result = new THREE.Mesh(finalGeometry, new THREE.MeshStandardMaterial({
+                    color: 0xcccccc,
+                    metalness: 0.3,
+                    roughness: 0.7
+                }));
+
+                scene.add(result);
+                finalMesh = result;
+
+                logStatus('⚠ Note: STL may have non-manifold edges from CSG operations. Use slicer auto-repair.', 'info');
+
+                logStatus('Geometry generated successfully!', 'success');
+                document.getElementById('exportBtn').disabled = false;
+
+                // Update leg count (for now just counting from JSON)
+                const legCount = frames.reduce((count, frame) => {
+                    if (frame.legType === 'double') return count + 2;
+                    if (frame.legType === 'none') return count;
+                    return count + 1;
+                }, 0);
+                document.getElementById('leg-count').textContent = legCount;
+
+            } catch (error) {
+                logStatus('Error generating geometry: ' + error.message, 'error');
+                console.error(error);
+            }
+        };
+
+        // Export STL
+        window.exportSTL = function() {
+            if (!finalMesh) {
+                logStatus('No geometry to export', 'error');
+                return;
+            }
+
+            try {
+                logStatus('Exporting STL (binary format)...', 'info');
+
+                const exporter = new STLExporter();
+                const stlData = exporter.parse(finalMesh, { binary: true });
+
+                const blob = new Blob([stlData], { type: 'application/octet-stream' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = 'sonar-composition.stl';
+                link.click();
+
+                logStatus('STL exported successfully! Use slicer auto-repair if needed.', 'success');
+            } catch (error) {
+                logStatus('Error exporting STL: ' + error.message, 'error');
+                console.error(error);
+            }
+        };
+
+        // Try using a simpler CSG approach with THREE.js BufferGeometryUtils
+        // Since the UMD libraries are having issues with ES modules, let's use a different approach
+
+        logStatus('Attempting to load CSG via CDN...', 'info');
+
+        // Try loading from unpkg instead
+        const script1 = document.createElement('script');
+        script1.src = 'https://unpkg.com/three-mesh-bvh@0.7.0/build/index.umd.cjs';
+        script1.type = 'text/javascript';
+        script1.onload = () => {
+            logStatus('BVH library loaded', 'info');
+            console.log('Window after BVH:', Object.keys(window).filter(k => k.toLowerCase().includes('bvh') || k.toLowerCase().includes('csg')));
+
+            const script2 = document.createElement('script');
+            script2.src = 'https://unpkg.com/three-bvh-csg@0.0.16/build/index.umd.cjs';
+            script2.type = 'text/javascript';
+            script2.onload = () => {
+                logStatus('CSG libraries loaded - ready to build!', 'success');
+                console.log('Window after CSG:', Object.keys(window).filter(k => k.toLowerCase().includes('bvh') || k.toLowerCase().includes('csg')));
+                console.log('Checking window.CSGBVH:', typeof window.CSGBVH);
+                console.log('Checking window.CSG:', typeof window.CSG);
+                console.log('Checking window.THREE:', typeof window.THREE);
+
+                // Enable generate button once CSG is loaded
+                document.getElementById('generateBtn').disabled = false;
+            };
+            script2.onerror = (e) => {
+                logStatus('Failed to load CSG library: ' + e, 'error');
+                console.error('CSG load error:', e);
+            };
+            document.body.appendChild(script2);
+        };
+        script1.onerror = (e) => {
+            logStatus('Failed to load BVH library: ' + e, 'error');
+            console.error('BVH load error:', e);
+        };
+        document.body.appendChild(script1);
+    </script>
+</body>
+</html>

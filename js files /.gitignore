@@ -1,0 +1,14 @@
+# MacOS
+.DS_Store
+
+# Node modules (if you add any later)
+node_modules/
+
+# Learning and development files
+Learning files/
+fullcode/
+screenshots/
+
+# Test files (don't deploy these)
+test.html
+index-custom.html

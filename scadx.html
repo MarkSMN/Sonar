@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SONAR SCAD Exporter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00;
+        }
+
+        .subtitle {
+            color: #888;
+            margin-bottom: 30px;
+            font-size: 0.9em;
+        }
+
+        .section {
+            background: #2a2a2a;
+            border: 2px solid #00ff00;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+
+        .section-title {
+            font-size: 1.2em;
+            margin-bottom: 15px;
+            color: #00ff00;
+            font-weight: bold;
+        }
+
+        button {
+            background: #2a2a2a;
+            color: #00ff00;
+            border: 2px solid #00ff00;
+            padding: 10px 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 1em;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            transition: all 0.3s;
+        }
+
+        button:hover:not(:disabled) {
+            background: #00ff00;
+            color: #1a1a1a;
+            box-shadow: 0 0 10px #00ff00;
+        }
+
+        button:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .info-item {
+            background: #1a1a1a;
+            padding: 10px;
+            border: 1px solid #444;
+            border-radius: 3px;
+        }
+
+        .info-label {
+            color: #888;
+            font-size: 0.9em;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            color: #00ff00;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        #status {
+            background: #1a1a1a;
+            border: 1px solid #444;
+            padding: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 0.9em;
+        }
+
+        .status-line {
+            margin-bottom: 5px;
+        }
+
+        .status-info {
+            color: #00ff00;
+        }
+
+        .status-success {
+            color: #00ff00;
+            font-weight: bold;
+        }
+
+        .status-error {
+            color: #ff0000;
+        }
+
+        .status-warning {
+            color: #ffaa00;
+        }
+
+        #preview {
+            background: #1a1a1a;
+            border: 1px solid #444;
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 0.85em;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+        }
+
+        .scad-comment {
+            color: #888;
+        }
+
+        .scad-keyword {
+            color: #ff00ff;
+        }
+
+        .scad-number {
+            color: #00ffff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SONAR SCAD EXPORTER</h1>
+        <div class="subtitle">Convert SONAR JSON compositions to OpenSCAD scripts</div>
+
+        <div class="section">
+            <div class="section-title">Import</div>
+            <button onclick="document.getElementById('fileInput').click()">Load JSON File</button>
+            <button onclick="loadTestJSON()">Load Test File</button>
+            <input type="file" id="fileInput" accept=".json" onchange="loadJSON(event)">
+        </div>
+
+        <div class="section">
+            <div class="section-title">Composition Info</div>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">Lenses</span>
+                    <span class="info-value" id="lens-count">-</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Legs</span>
+                    <span class="info-value" id="leg-count">-</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Anchors</span>
+                    <span class="info-value" id="anchor-count">-</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Status</span>
+                    <span class="info-value" id="status-text">No file loaded</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Export</div>
+            <button onclick="generateSCAD()" id="generateBtn" disabled>Generate OpenSCAD</button>
+            <button onclick="exportSCAD()" id="exportBtn" disabled>Download .scad File</button>
+        </div>
+
+        <div class="section">
+            <div class="section-title">OpenSCAD Script Preview</div>
+            <div id="preview">No script generated yet...</div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Log</div>
+            <div id="status"></div>
+        </div>
+    </div>
+
+    <script>
+        let jsonData = null;
+        let scadScript = null;
+
+        function logStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            const line = document.createElement('div');
+            line.className = `status-line status-${type}`;
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            statusDiv.appendChild(line);
+            statusDiv.scrollTop = statusDiv.scrollHeight;
+        }
+
+        function loadTestJSON() {
+            logStatus('Loading test composition...', 'info');
+            fetch('test-composition.json')
+                .then(response => response.json())
+                .then(data => {
+                    processJSON(data);
+                })
+                .catch(error => {
+                    logStatus('Error loading test file: ' + error.message, 'error');
+                });
+        }
+
+        function loadJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            logStatus(`Loading new file: ${file.name}`, 'info');
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    processJSON(data);
+                    // Clear the file input so the same file can be loaded again
+                    event.target.value = '';
+                } catch (error) {
+                    logStatus('Error parsing JSON: ' + error.message, 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function processJSON(data) {
+            // Clear previous data
+            jsonData = null;
+            scadScript = null;
+
+            // Reset UI state
+            document.getElementById('preview').textContent = 'No script generated yet...';
+            document.getElementById('exportBtn').disabled = true;
+
+            // Load new data
+            jsonData = data;
+
+            const frames = data.layers[0].frames;
+            const anchors = data.anchors || [];
+
+            // Count legs
+            const legCount = frames.reduce((count, frame) => {
+                if (frame.legType === 'double') return count + 2;
+                if (frame.legType === 'none') return count;
+                return count + 1;
+            }, 0);
+
+            document.getElementById('lens-count').textContent = frames.length;
+            document.getElementById('leg-count').textContent = legCount;
+            document.getElementById('anchor-count').textContent = anchors.length;
+            document.getElementById('status-text').textContent = 'Ready';
+            document.getElementById('generateBtn').disabled = false;
+
+            logStatus(`Loaded composition: ${frames.length} lenses, ${legCount} legs, ${anchors.length} anchors`, 'success');
+        }
+
+        // Helper function to get bridge attachment point coordinates
+        function getBridgeAttachmentPointScad(lens, position, legOffset) {
+            switch(position) {
+                case 'L':
+                    // Left edge
+                    return {
+                        x: lens.position.x - (lens.radius - legOffset),
+                        y: lens.position.y
+                    };
+                case 'C':
+                    // Center bottom
+                    return {
+                        x: lens.position.x,
+                        y: lens.position.y + (lens.radius - legOffset)
+                    };
+                case 'R':
+                    // Right edge
+                    return {
+                        x: lens.position.x + (lens.radius - legOffset),
+                        y: lens.position.y
+                    };
+            }
+        }
+
+        function generateSCAD() {
+            if (!jsonData) {
+                logStatus('No JSON data loaded', 'error');
+                return;
+            }
+
+            logStatus('Generating OpenSCAD script...', 'info');
+
+            const frames = jsonData.layers[0].frames;
+            const anchors = jsonData.anchors || [];
+            const metadata = jsonData.metadata || {};
+
+            let scad = `// SONAR 3D Composition - OpenSCAD Export
+// Generated: ${new Date().toISOString()}
+// Source: ${metadata.seed ? 'seed_' + metadata.seed : 'unknown'}
+
+// ========================================
+// EXPORT OPTIONS - Toggle what to generate
+// ========================================
+
+EXPORT_STRUCTURE = true;   // Frame structure with legs/bridges/anchors
+EXPORT_WASHERS = false;    // Lens washers (set to true, structure to false)
+
+// ========================================
+// PHYSICAL CONSTANTS (all units in mm)
+// ========================================
+
+frame_height = 3.175;      // Thickness of lens frames
+frame_width = 1.2;         // Wall thickness
+channel_depth = 1.5875;    // Depth of lens channel
+anchor_diameter = 6.36;    // Anchor outer diameter
+anchor_hole_size = 2.8;    // Square hole in anchor
+leg_width = 1.2;           // Leg thickness
+ground_y = 76;             // Ground plane Y coordinate
+overlap = 0.1;             // Small overlap for CSG union operations
+
+// Rendering quality ($fn = segments for curves)
+$fn = 80;
+
+// ========================================
+// MAIN COMPOSITION
+// ========================================
+
+if (EXPORT_STRUCTURE) {
+    difference() {
+        all_solids();
+        all_voids();
+    }
+}
+
+if (EXPORT_WASHERS) {
+    washers();
+}
+
+// ========================================
+// ALL SOLID PARTS
+// ========================================
+
+module all_solids() {
+    union() {
+        // Lens frame outer cylinders
+        lens_frames_outer();
+
+        // Legs
+        legs();
+
+        // Bridges
+        bridges();
+
+        // Anchor outer cylinders
+        anchors_outer();
+    }
+}
+
+// ========================================
+// ALL VOID PARTS (CUTOUTS)
+// ========================================
+
+module all_voids() {
+    union() {
+        // Lens channels
+        lens_channels();
+
+        // Lens inner holes
+        lens_holes();
+
+        // Anchor square holes
+        anchor_holes();
+    }
+}
+
+// ========================================
+// LENS FRAME COMPONENTS
+// ========================================
+
+module lens_frames_outer() {
+`;
+
+            // Generate lens frame outer cylinders
+            frames.forEach((frame, index) => {
+                const x = frame.position.x;
+                const y = frame.position.y;
+                const r = frame.radius + 0.1; // Add overlap for CSG union
+                scad += `    // Lens ${index + 1}: r=${frame.radius.toFixed(2)}mm at (${x.toFixed(2)}, ${y.toFixed(2)})\n`;
+                scad += `    translate([${x.toFixed(3)}, ${y.toFixed(3)}, 0])\n`;
+                scad += `        cylinder(r=${r.toFixed(3)}, h=frame_height);\n\n`;
+            });
+
+            scad += `}
+
+module lens_channels() {
+`;
+
+            // Generate lens channels
+            frames.forEach((frame, index) => {
+                const x = frame.position.x;
+                const y = frame.position.y;
+                const channelR = frame.radius - 1.2; // frame_width
+                scad += `    // Channel ${index + 1}\n`;
+                scad += `    translate([${x.toFixed(3)}, ${y.toFixed(3)}, frame_height - channel_depth])\n`;
+                scad += `        cylinder(r=${channelR.toFixed(3)}, h=channel_depth + 0.1);\n\n`;
+            });
+
+            scad += `}
+
+module lens_holes() {
+`;
+
+            // Generate lens inner holes
+            frames.forEach((frame, index) => {
+                const x = frame.position.x;
+                const y = frame.position.y;
+                const innerR = frame.radius - 2.4; // frame_width * 2
+                scad += `    // Inner hole ${index + 1}\n`;
+                scad += `    translate([${x.toFixed(3)}, ${y.toFixed(3)}, -0.5])\n`;
+                scad += `        cylinder(r=${innerR.toFixed(3)}, h=frame_height + 1);\n\n`;
+            });
+
+            scad += `}
+
+// ========================================
+// LEGS
+// ========================================
+
+module legs() {
+`;
+
+            // Generate legs
+            frames.forEach((frame, index) => {
+                const legType = frame.legType;
+                if (legType === 'none') return;
+
+                const x = frame.position.x;
+                const y = frame.position.y;
+                const r = frame.radius;
+                const legOffset = 0.6;
+
+                scad += `    // Leg for lens ${index + 1}: type=${legType}\n`;
+
+                switch (legType) {
+                    case 'single':
+                        const singleLegHeight = 76 - (y - r) + 0.1; // ground_y - (y - radius) + overlap
+                        if (singleLegHeight > 0) {
+                            const legStartY = y - r;
+                            scad += `    translate([${(x - 0.6).toFixed(3)}, ${legStartY.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${singleLegHeight.toFixed(3)}, frame_height]);\n\n`;
+                        }
+                        break;
+
+                    case 'double':
+                        const leftX = x - (r - legOffset);
+                        const rightX = x + (r - legOffset);
+                        const doubleLegHeight = 76 - y + 0.1; // ground_y - y + overlap
+                        if (doubleLegHeight > 0) {
+                            scad += `    translate([${(leftX - 0.6).toFixed(3)}, ${y.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${doubleLegHeight.toFixed(3)}, frame_height]);\n`;
+                            scad += `    translate([${(rightX - 0.6).toFixed(3)}, ${y.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${doubleLegHeight.toFixed(3)}, frame_height]);\n\n`;
+                        }
+                        break;
+
+                    case 'curved_lc':
+                        // Left-center U-shaped leg
+                        const leftEdgeX_lc = x - (r - legOffset);
+                        const leftEdgeY_lc = y;
+                        const centerBottomX_lc = x;
+                        const centerBottomY_lc = y + (r - legOffset);
+
+                        const arcRadius_lc = (centerBottomX_lc - leftEdgeX_lc) / 2;
+                        const arcCenterX_lc = leftEdgeX_lc + arcRadius_lc;
+                        const arcCenterY_lc = 76 - arcRadius_lc; // ground_y - arcRadius
+
+                        // Only generate if arc center is below ring
+                        if (arcCenterY_lc > y + r) {
+                            // Left vertical leg
+                            const leftLegHeight_lc = arcCenterY_lc - leftEdgeY_lc + 0.1;
+                            scad += `    // curved_lc: Left vertical\n`;
+                            scad += `    translate([${(leftEdgeX_lc - 0.6).toFixed(3)}, ${leftEdgeY_lc.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${leftLegHeight_lc.toFixed(3)}, frame_height]);\n\n`;
+
+                            // Center vertical leg
+                            const centerLegHeight_lc = arcCenterY_lc - centerBottomY_lc + 0.1;
+                            scad += `    // curved_lc: Center vertical\n`;
+                            scad += `    translate([${(centerBottomX_lc - 0.6).toFixed(3)}, ${centerBottomY_lc.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${centerLegHeight_lc.toFixed(3)}, frame_height]);\n\n`;
+
+                            // U-shaped arc at bottom (rectangular cross-section)
+                            scad += `    // curved_lc: U-shaped arc\n`;
+                            scad += `    translate([${arcCenterX_lc.toFixed(3)}, ${arcCenterY_lc.toFixed(3)}, 0])\n`;
+                            scad += `        rotate([0, 0, 0])\n`;
+                            scad += `        rotate_extrude(angle=180)\n`;
+                            scad += `        translate([${(arcRadius_lc - 0.6).toFixed(3)}, 0, 0])\n`;
+                            scad += `        square([leg_width, frame_height], center=false);\n\n`;
+                        }
+                        break;
+
+                    case 'curved_cr':
+                        // Center-right U-shaped leg
+                        const centerBottomX_cr = x;
+                        const centerBottomY_cr = y + (r - legOffset);
+                        const rightEdgeX_cr = x + (r - legOffset);
+                        const rightEdgeY_cr = y;
+
+                        const arcRadius_cr = (rightEdgeX_cr - centerBottomX_cr) / 2;
+                        const arcCenterX_cr = centerBottomX_cr + arcRadius_cr;
+                        const arcCenterY_cr = 76 - arcRadius_cr;
+
+                        if (arcCenterY_cr > y + r) {
+                            // Center vertical leg
+                            const centerLegHeight_cr = arcCenterY_cr - centerBottomY_cr + 0.1;
+                            scad += `    // curved_cr: Center vertical\n`;
+                            scad += `    translate([${(centerBottomX_cr - 0.6).toFixed(3)}, ${centerBottomY_cr.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${centerLegHeight_cr.toFixed(3)}, frame_height]);\n\n`;
+
+                            // Right vertical leg
+                            const rightLegHeight_cr = arcCenterY_cr - rightEdgeY_cr + 0.1;
+                            scad += `    // curved_cr: Right vertical\n`;
+                            scad += `    translate([${(rightEdgeX_cr - 0.6).toFixed(3)}, ${rightEdgeY_cr.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${rightLegHeight_cr.toFixed(3)}, frame_height]);\n\n`;
+
+                            // U-shaped arc at bottom (rectangular cross-section)
+                            scad += `    // curved_cr: U-shaped arc\n`;
+                            scad += `    translate([${arcCenterX_cr.toFixed(3)}, ${arcCenterY_cr.toFixed(3)}, 0])\n`;
+                            scad += `        rotate([0, 0, 0])\n`;
+                            scad += `        rotate_extrude(angle=180)\n`;
+                            scad += `        translate([${(arcRadius_cr - 0.6).toFixed(3)}, 0, 0])\n`;
+                            scad += `        square([leg_width, frame_height], center=false);\n\n`;
+                        }
+                        break;
+
+                    case 'curved_lr':
+                        // Left-right wide U-shaped leg
+                        const leftEdgeX_lr = x - (r - legOffset);
+                        const leftEdgeY_lr = y;
+                        const rightEdgeX_lr = x + (r - legOffset);
+                        const rightEdgeY_lr = y;
+
+                        const arcRadius_lr = (rightEdgeX_lr - leftEdgeX_lr) / 2;
+                        const arcCenterX_lr = x;
+                        const arcCenterY_lr = 76 - arcRadius_lr;
+
+                        if (arcCenterY_lr > y + r) {
+                            // Left vertical leg
+                            const leftLegHeight_lr = arcCenterY_lr - leftEdgeY_lr + 0.1;
+                            scad += `    // curved_lr: Left vertical\n`;
+                            scad += `    translate([${(leftEdgeX_lr - 0.6).toFixed(3)}, ${leftEdgeY_lr.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${leftLegHeight_lr.toFixed(3)}, frame_height]);\n\n`;
+
+                            // Right vertical leg
+                            const rightLegHeight_lr = arcCenterY_lr - rightEdgeY_lr + 0.1;
+                            scad += `    // curved_lr: Right vertical\n`;
+                            scad += `    translate([${(rightEdgeX_lr - 0.6).toFixed(3)}, ${rightEdgeY_lr.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${rightLegHeight_lr.toFixed(3)}, frame_height]);\n\n`;
+
+                            // Wide U-shaped arc at bottom (rectangular cross-section)
+                            scad += `    // curved_lr: Wide U-shaped arc\n`;
+                            scad += `    translate([${arcCenterX_lr.toFixed(3)}, ${arcCenterY_lr.toFixed(3)}, 0])\n`;
+                            scad += `        rotate([0, 0, 0])\n`;
+                            scad += `        rotate_extrude(angle=180)\n`;
+                            scad += `        translate([${(arcRadius_lr - 0.6).toFixed(3)}, 0, 0])\n`;
+                            scad += `        square([leg_width, frame_height], center=false);\n\n`;
+                        }
+                        break;
+
+                    case 'curved_adjacent':
+                        // Bridge leg connecting two adjacent (tangent) lenses
+                        if (frame.adjacentRingIndex !== -1 && frame.adjacentRingIndex < frames.length) {
+                            const adjacent = frames[frame.adjacentRingIndex];
+                            const dx = adjacent.position.x - x;
+                            const dy = adjacent.position.y - y;
+                            const dist = Math.sqrt(dx * dx + dy * dy);
+
+                            // Tangent point along line connecting centers
+                            const tangentX = x + (dx / dist) * r;
+                            const tangentY = y + (dy / dist) * r;
+
+                            // Two vertical legs 3mm apart at tangent point
+                            const legSpacing = 3;
+                            const leg1X = tangentX - legSpacing / 2;
+                            const leg2X = tangentX + legSpacing / 2;
+
+                            const bridgeArcRadius = legSpacing / 2;
+                            const bridgeArcCenterY = 76 - bridgeArcRadius;
+
+                            // Check if arc center is below both rings
+                            const ring1Bottom = y + r;
+                            const ring2Bottom = adjacent.position.y + adjacent.radius;
+
+                            if (bridgeArcCenterY > ring1Bottom && bridgeArcCenterY > ring2Bottom) {
+                                // Left vertical leg
+                                const leg1Height = bridgeArcCenterY - tangentY + 0.1;
+                                scad += `    // curved_adjacent: Left vertical\n`;
+                                scad += `    translate([${(leg1X - 0.6).toFixed(3)}, ${tangentY.toFixed(3)}, 0])\n`;
+                                scad += `        cube([leg_width, ${leg1Height.toFixed(3)}, frame_height]);\n\n`;
+
+                                // Right vertical leg
+                                const leg2Height = bridgeArcCenterY - tangentY + 0.1;
+                                scad += `    // curved_adjacent: Right vertical\n`;
+                                scad += `    translate([${(leg2X - 0.6).toFixed(3)}, ${tangentY.toFixed(3)}, 0])\n`;
+                                scad += `        cube([leg_width, ${leg2Height.toFixed(3)}, frame_height]);\n\n`;
+
+                                // Bridge arc (rectangular cross-section)
+                                scad += `    // curved_adjacent: Bridge arc\n`;
+                                scad += `    translate([${tangentX.toFixed(3)}, ${bridgeArcCenterY.toFixed(3)}, 0])\n`;
+                                scad += `        rotate([0, 0, 0])\n`;
+                                scad += `        rotate_extrude(angle=180)\n`;
+                                scad += `        translate([${(bridgeArcRadius - 0.6).toFixed(3)}, 0, 0])\n`;
+                                scad += `        square([leg_width, frame_height], center=false);\n\n`;
+                            }
+                        } else {
+                            // Fallback to single straight leg if no adjacent ring
+                            const fallbackLegHeight = 76 - (y - r) + 0.1;
+                            if (fallbackLegHeight > 0) {
+                                const legStartY = y - r;
+                                scad += `    // curved_adjacent: No adjacent ring, using straight leg\n`;
+                                scad += `    translate([${(x - 0.6).toFixed(3)}, ${legStartY.toFixed(3)}, 0])\n`;
+                                scad += `        cube([leg_width, ${fallbackLegHeight.toFixed(3)}, frame_height]);\n\n`;
+                            }
+                        }
+                        break;
+                }
+            });
+
+            scad += `}
+
+// ========================================
+// BRIDGES (Random lens-to-lens connections)
+// ========================================
+
+module bridges() {
+`;
+
+            // Generate bridges
+            const bridges = jsonData.bridges || [];
+            if (bridges.length > 0) {
+                bridges.forEach((bridge, bridgeIndex) => {
+                    const lens1 = frames[bridge.lens1Index];
+                    const lens2 = frames[bridge.lens2Index];
+
+                    if (!lens1 || !lens2) return;
+
+                    scad += `    // Bridge ${bridgeIndex + 1}: lens ${bridge.lens1Index + 1}[${bridge.lens1Position}] to lens ${bridge.lens2Index + 1}[${bridge.lens2Position}]\n`;
+
+                    // Get attachment points (in mm coordinates)
+                    const legOffset = 0.6;
+                    const point1 = getBridgeAttachmentPointScad(lens1, bridge.lens1Position, legOffset);
+                    const point2 = getBridgeAttachmentPointScad(lens2, bridge.lens2Position, legOffset);
+
+                    const x1 = point1.x;
+                    const y1 = point1.y;
+                    const x2 = point2.x;
+                    const y2 = point2.y;
+
+                    // Calculate arc parameters
+                    const arcRadius = Math.abs(x2 - x1) / 2;
+                    const arcCenterX = (x1 + x2) / 2;
+                    const arcCenterY = 76 - arcRadius; // ground_y - arcRadius
+
+                    // Check if arc center is below both lenses
+                    const lens1Bottom = lens1.position.y + lens1.radius;
+                    const lens2Bottom = lens2.position.y + lens2.radius;
+
+                    if (arcCenterY > lens1Bottom && arcCenterY > lens2Bottom && arcRadius > 0) {
+                        // Vertical leg 1
+                        const leg1Height = arcCenterY - y1 + 0.1;
+                        if (leg1Height > 0) {
+                            scad += `    translate([${(x1 - 0.6).toFixed(3)}, ${y1.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${leg1Height.toFixed(3)}, frame_height]);\n\n`;
+                        }
+
+                        // Vertical leg 2
+                        const leg2Height = arcCenterY - y2 + 0.1;
+                        if (leg2Height > 0) {
+                            scad += `    translate([${(x2 - 0.6).toFixed(3)}, ${y2.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${leg2Height.toFixed(3)}, frame_height]);\n\n`;
+                        }
+
+                        // Arc connecting them
+                        scad += `    translate([${arcCenterX.toFixed(3)}, ${arcCenterY.toFixed(3)}, 0])\n`;
+                        scad += `        rotate([0, 0, 0])\n`;
+                        scad += `        rotate_extrude(angle=180)\n`;
+                        scad += `        translate([${(arcRadius - 0.6).toFixed(3)}, 0, 0])\n`;
+                        scad += `        square([leg_width, frame_height], center=false);\n\n`;
+                    }
+                });
+            }
+
+            scad += `}
+
+// ========================================
+// ANCHORS
+// ========================================
+
+module anchors_outer() {
+`;
+
+            // Generate anchor outer cylinders
+            anchors.forEach((anchor, index) => {
+                const x = anchor.position.x;
+                const y = anchor.position.y;
+                scad += `    // Anchor ${index + 1}\n`;
+                scad += `    translate([${x.toFixed(3)}, ${y.toFixed(3)}, 0])\n`;
+                scad += `        cylinder(r=anchor_diameter/2 + overlap, h=frame_height);\n\n`;
+            });
+
+            scad += `}
+
+module anchor_holes() {
+`;
+
+            // Generate anchor square holes
+            anchors.forEach((anchor, index) => {
+                const x = anchor.position.x;
+                const y = anchor.position.y;
+                scad += `    // Anchor hole ${index + 1}\n`;
+                scad += `    translate([${(x - 1.4).toFixed(3)}, ${(y - 1.4).toFixed(3)}, -0.5])\n`;
+                scad += `        cube([anchor_hole_size, anchor_hole_size, frame_height + 2]);\n\n`;
+            });
+
+            scad += `}
+
+// ========================================
+// LENS WASHERS (for holding lenses in place)
+// ========================================
+
+module washers() {
+`;
+
+            // Generate washers for each lens
+            frames.forEach((frame, index) => {
+                const x = frame.position.x;
+                const y = frame.position.y;
+                const outerRadius = frame.radius - 1.2; // Channel radius
+                const innerRadius = outerRadius - 1.2; // Ring width = 1.2mm
+                const washerHeight = 1.5875; // Channel depth
+
+                scad += `    // Washer for lens ${index + 1}\n`;
+                scad += `    translate([${x.toFixed(3)}, ${y.toFixed(3)}, 0])\n`;
+                scad += `        difference() {\n`;
+                scad += `            cylinder(r=${outerRadius.toFixed(3)}, h=${washerHeight.toFixed(4)});\n`;
+                scad += `            translate([0, 0, -0.5])\n`;
+                scad += `                cylinder(r=${innerRadius.toFixed(3)}, h=${(washerHeight + 1).toFixed(4)});\n`;
+                scad += `        }\n\n`;
+            });
+
+            scad += `}
+
+// ========================================
+// END OF SCRIPT
+// ========================================
+`;
+
+            scadScript = scad;
+            document.getElementById('preview').textContent = scad;
+            document.getElementById('exportBtn').disabled = false;
+
+            logStatus('OpenSCAD script generated successfully!', 'success');
+            logStatus('Preview shown above. Click "Download .scad File" to save.', 'info');
+        }
+
+        function exportSCAD() {
+            if (!scadScript) {
+                logStatus('No script to export', 'error');
+                return;
+            }
+
+            const metadata = jsonData.metadata || {};
+            const filename = metadata.seed
+                ? `sonar_${metadata.seed}.scad`
+                : `sonar_composition.scad`;
+
+            const blob = new Blob([scadScript], { type: 'text/plain' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();
+
+            logStatus(`Downloaded: ${filename}`, 'success');
+            logStatus('Next steps: Open in OpenSCAD, press F6 to render, F7 to export STL', 'info');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,67 @@
+{
+  "layers": [
+    {
+      "frames": [
+        {
+          "radius": 65.98829732510288,
+          "position": {
+            "x": -1.6248988209676813,
+            "y": 3.22680551909707
+          },
+          "color": "#F4E8A0",
+          "legType": "single",
+          "adjacentRingIndex": -1
+        },
+        {
+          "radius": 13.212448559670783,
+          "position": {
+            "x": -60.32391685570036,
+            "y": 56.3980706014949
+          },
+          "color": "#E8C5A0",
+          "legType": "double",
+          "adjacentRingIndex": -1
+        },
+        {
+          "radius": 15.254308127572017,
+          "position": {
+            "x": -51.71473859431526,
+            "y": -60.73700371877875
+          },
+          "color": "#E8C4D5",
+          "legType": "curved_adjacent",
+          "adjacentRingIndex": -1
+        }
+      ]
+    }
+  ],
+  "anchors": [
+    {
+      "position": {
+        "x": 67.43348472373003,
+        "y": 7.124627609349511
+      },
+      "radius": 3.18
+    },
+    {
+      "position": {
+        "x": -43.999956777286364,
+        "y": 57.89496643614702
+      },
+      "radius": 3.18
+    },
+    {
+      "position": {
+        "x": -34.67412887605505,
+        "y": -67.76845709430529
+      },
+      "radius": 3.18
+    }
+  ],
+  "metadata": {
+    "seed": 1769374918681,
+    "lensSeed": 1769374918681,
+    "legSeed": 1769374937092,
+    "timestamp": "2026-01-25T21:02:55.006Z"
+  }
+}

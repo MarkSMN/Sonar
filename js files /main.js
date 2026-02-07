@@ -74,7 +74,7 @@ const CONFIG = {
     ANCHOR_ANGLE_JITTER: 0.3,    // radians (±17°)
     ANCHOR_RADIUS_VARIATION: 20, // ± mm per anchor
     ANCHOR_CENTER_X: 0,          // mm
-    ANCHOR_CENTER_Y: 150         // mm (middle of canvas)
+    ANCHOR_CENTER_Y: 150,        // mm (middle of canvas)
 
     // Leg configuration
     LEG_DIAMETER: 6.35, // 1/4 inch rod

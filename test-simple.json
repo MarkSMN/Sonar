@@ -1,0 +1,23 @@
+{
+  "layers": [
+    {
+      "frames": [
+        {
+          "radius": 20,
+          "position": { "x": -25, "y": 30 },
+          "legType": "single"
+        },
+        {
+          "radius": 15,
+          "position": { "x": 25, "y": 30 },
+          "legType": "single"
+        }
+      ]
+    }
+  ],
+  "anchors": [
+    {
+      "position": { "x": 0, "y": 50 }
+    }
+  ]
+}

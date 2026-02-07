@@ -1,0 +1,67 @@
+{
+  "layers": [
+    {
+      "frames": [
+        {
+          "radius": 50,
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "color": "#F4E8A0",
+          "legType": "single",
+          "adjacentRingIndex": -1
+        },
+        {
+          "radius": 35,
+          "position": {
+            "x": 60,
+            "y": 30
+          },
+          "color": "#E8C5A0",
+          "legType": "double",
+          "adjacentRingIndex": -1
+        },
+        {
+          "radius": 40,
+          "position": {
+            "x": -50,
+            "y": 40
+          },
+          "color": "#A0B0E8",
+          "legType": "curved_lr",
+          "adjacentRingIndex": -1
+        }
+      ]
+    }
+  ],
+  "anchors": [
+    {
+      "position": {
+        "x": 0,
+        "y": -80
+      },
+      "radius": 3.18
+    },
+    {
+      "position": {
+        "x": 70,
+        "y": 40
+      },
+      "radius": 3.18
+    },
+    {
+      "position": {
+        "x": -70,
+        "y": 40
+      },
+      "radius": 3.18
+    }
+  ],
+  "metadata": {
+    "seed": 1234567890,
+    "lensSeed": 1234567890,
+    "legSeed": 1234567890,
+    "timestamp": "2026-01-24T12:00:00.000Z"
+  }
+}

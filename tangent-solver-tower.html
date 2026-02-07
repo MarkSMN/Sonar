@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SONAR Tower Mode - Self-Returning Vertical Sculpture</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: #e0e0e0;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        #container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Left Sidebar - Controls */
+        #sidebar {
+            width: 320px;
+            background: rgba(20, 20, 20, 0.95);
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 2px solid #00ff00;
+        }
+
+        #sidebar h1 {
+            color: #00ff00;
+            font-size: 18px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        #sidebar h2 {
+            color: #00ffff;
+            font-size: 14px;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: rgba(40, 40, 40, 0.5);
+            border-radius: 4px;
+        }
+
+        .control-group label {
+            display: block;
+            color: #aaa;
+            font-size: 11px;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            margin: 5px 0;
+        }
+
+        .value-display {
+            color: #00ff00;
+            font-size: 12px;
+            text-align: right;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            margin: 5px 0;
+            background: #2a2a2a;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            text-transform: uppercase;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: #00ff00;
+            color: #1a1a1a;
+        }
+
+        button.danger {
+            border-color: #ff4444;
+            color: #ff4444;
+        }
+
+        button.danger:hover {
+            background: #ff4444;
+            color: #1a1a1a;
+        }
+
+        button.secondary {
+            border-color: #00ffff;
+            color: #00ffff;
+        }
+
+        button.secondary:hover {
+            background: #00ffff;
+            color: #1a1a1a;
+        }
+
+        /* Canvas Area */
+        #canvas-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #2a2a2a;
+            position: relative;
+        }
+
+        #canvas {
+            border: 2px solid #00ff00;
+            cursor: crosshair;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
+        }
+
+        /* Mode Indicator */
+        #mode-indicator {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 255, 0, 0.9);
+            color: #1a1a1a;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        /* Lens List */
+        #lens-list {
+            max-height: 300px;
+            overflow-y: auto;
+            background: rgba(30, 30, 30, 0.8);
+            border-radius: 4px;
+            padding: 10px;
+        }
+
+        .lens-item {
+            padding: 8px;
+            margin: 4px 0;
+            background: rgba(50, 50, 50, 0.5);
+            border-left: 3px solid #00ff00;
+            cursor: pointer;
+            font-size: 11px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .lens-item:hover {
+            background: rgba(70, 70, 70, 0.7);
+        }
+
+        .lens-item.selected {
+            background: rgba(0, 255, 0, 0.2);
+            border-left-color: #00ffff;
+        }
+
+        .lens-item.anchor {
+            border-left-color: #ff00ff;
+        }
+
+        .delete-btn {
+            background: #ff4444;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 10px;
+        }
+
+        .delete-btn:hover {
+            background: #ff6666;
+        }
+
+        /* Info Panel */
+        #info-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 4px;
+            font-size: 11px;
+            color: #00ff00;
+            max-width: 300px;
+        }
+
+        .color-option {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            margin: 3px;
+            border: 2px solid transparent;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .color-option.selected {
+            border-color: #fff;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #00ff00;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <!-- Left Sidebar -->
+        <div id="sidebar">
+            <h1>🗼 Tower Mode</h1>
+            <p style="font-size: 10px; color: #888; margin-bottom: 20px;">Self-Returning Vertical Sculpture</p>
+
+            <h2>📐 Canvas</h2>
+            <div class="control-group">
+                <label>Width: 152mm × Height: 250mm</label>
+                <label style="margin-top: 8px;">Scale: 3.5px/mm (532×875px)</label>
+            </div>
+
+            <h2>➕ Add Elements</h2>
+            <button onclick="setMode('add-lens')" id="add-lens-btn">Add Lens (Click Canvas)</button>
+            <button onclick="setMode('add-anchor')" class="secondary" id="add-anchor-btn">Add Anchor (6.36mm)</button>
+            <button onclick="setMode('select')" id="select-btn">Select / Move Mode</button>
+
+            <h2>🎨 Lens Color</h2>
+            <div class="control-group" style="text-align: center;">
+                <div class="color-option selected" onclick="selectColor('#FF0000')" style="background: #FF0000;"></div>
+                <div class="color-option" onclick="selectColor('#00FF00')" style="background: #00FF00;"></div>
+                <div class="color-option" onclick="selectColor('#0000FF')" style="background: #0000FF;"></div>
+                <div class="color-option" onclick="selectColor('#FFFF00')" style="background: #FFFF00;"></div>
+                <div class="color-option" onclick="selectColor('#FF00FF')" style="background: #FF00FF;"></div>
+                <div class="color-option" onclick="selectColor('#00FFFF')" style="background: #00FFFF;"></div>
+            </div>
+
+            <h2>📏 Selected Lens Size</h2>
+            <div class="control-group">
+                <label>Radius: <span id="radius-value" class="value-display">18.00mm</span></label>
+                <input type="range" id="radius-slider" min="6" max="40" step="0.5" value="18" oninput="updateSelectedRadius()">
+                <label style="margin-top: 5px; font-size: 9px; color: #666;">Min: 6mm | Max: 40mm</label>
+            </div>
+
+            <h2>🔗 Connections</h2>
+            <button onclick="setMode('add-leg')" id="add-leg-btn">Add Leg (Click 2 Elements)</button>
+            <button onclick="generateConnections()" class="secondary">Generate Leg Suggestions</button>
+            <button onclick="clearAllLegs()">Clear All Legs</button>
+
+            <h2>✏️ Selected Leg</h2>
+            <div class="control-group" id="leg-controls" style="display: none;">
+                <label>Length: <span id="leg-length-value" class="value-display">--mm</span></label>
+                <input type="range" id="leg-length-slider" min="5" max="250" step="0.5" value="50" oninput="updateSelectedLegLength()">
+                <label style="margin-top: 8px;">Position:</label>
+                <button onclick="changeLegPosition('left')" style="width: 32%; display: inline-block;">Left</button>
+                <button onclick="changeLegPosition('center')" style="width: 32%; display: inline-block;">Center</button>
+                <button onclick="changeLegPosition('right')" style="width: 32%; display: inline-block;">Right</button>
+                <button onclick="deleteSelectedLeg()" class="danger" style="margin-top: 10px;">Delete Leg</button>
+            </div>
+
+            <h2>📋 Elements</h2>
+            <div id="lens-list"></div>
+
+            <h2>🚀 Export</h2>
+            <button onclick="exportAllFiles()" style="background: #3a3a3a; color: #00ff00; font-weight: 600;">Export All Files</button>
+            <button onclick="clearCanvas()" class="danger">Clear Canvas</button>
+        </div>
+
+        <!-- Canvas Area -->
+        <div id="canvas-container">
+            <div id="mode-indicator">Select Mode</div>
+            <canvas id="canvas" width="532" height="875"></canvas>
+            <div id="info-panel">
+                <strong>Controls:</strong><br>
+                • Click to add lens/anchor<br>
+                • Drag to move elements<br>
+                • Click element to select<br>
+                • Delete key to remove selected
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========================================
+        // CONSTANTS
+        // ========================================
+        const CANVAS_WIDTH = 152;  // mm
+        const CANVAS_HEIGHT = 250; // mm
+        const SCALE = 3.5;         // pixels per mm
+        const CANVAS_PX_WIDTH = CANVAS_WIDTH * SCALE;   // 532px
+        const CANVAS_PX_HEIGHT = CANVAS_HEIGHT * SCALE; // 875px
+
+        const MIN_RADIUS = 6;   // mm
+        const MAX_RADIUS = 40;  // mm
+        const OVERLAP_TOLERANCE = 0.1; // mm - CSG boolean overlap requirement
+
+        // ========================================
+        // STATE
+        // ========================================
+        let mode = 'select'; // 'select', 'add-lens', 'add-anchor', 'add-leg'
+        let currentColor = '#FF0000';
+        let selectedElement = null; // { type: 'lens'|'anchor'|'leg', id/index }
+        let dragging = false;
+        let dragOffset = { x: 0, y: 0 };
+
+        // Leg creation state
+        let legCreationSource = null; // First element clicked when adding leg
+
+        let lenses = [];   // { id, x, y, radius, color }
+        let anchors = [];  // { id, x, y, radius }
+        let legs = [];     // { fromId, toId, position: 'left'|'center'|'right', length: mm (optional custom length) }
+
+        let nextId = 1;
+
+        // ========================================
+        // CANVAS SETUP
+        // ========================================
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // ========================================
+        // MODE MANAGEMENT
+        // ========================================
+        function setMode(newMode) {
+            mode = newMode;
+            legCreationSource = null; // Reset leg creation
+            updateModeIndicator();
+            updateButtonStates();
+
+            if (mode === 'select') {
+                canvas.style.cursor = 'default';
+            } else {
+                canvas.style.cursor = 'crosshair';
+            }
+        }
+
+        function updateModeIndicator() {
+            const indicator = document.getElementById('mode-indicator');
+            const modes = {
+                'select': '🖱️ Select / Move',
+                'add-lens': '➕ Add Lens',
+                'add-anchor': '⚓ Add Anchor',
+                'add-leg': '🔗 Add Leg (Click Source)'
+            };
+            indicator.textContent = modes[mode] || mode;
+            indicator.style.background = mode === 'select' ? 'rgba(0, 255, 255, 0.9)' : 'rgba(0, 255, 0, 0.9)';
+        }
+
+        function updateButtonStates() {
+            document.getElementById('add-lens-btn').style.background = mode === 'add-lens' ? '#00ff00' : '#2a2a2a';
+            document.getElementById('add-lens-btn').style.color = mode === 'add-lens' ? '#1a1a1a' : '#00ff00';
+
+            document.getElementById('add-anchor-btn').style.background = mode === 'add-anchor' ? '#00ffff' : '#2a2a2a';
+            document.getElementById('add-anchor-btn').style.color = mode === 'add-anchor' ? '#1a1a1a' : '#00ffff';
+
+            document.getElementById('add-leg-btn').style.background = mode === 'add-leg' ? '#00ff00' : '#2a2a2a';
+            document.getElementById('add-leg-btn').style.color = mode === 'add-leg' ? '#1a1a1a' : '#00ff00';
+
+            document.getElementById('select-btn').style.background = mode === 'select' ? '#00ffff' : '#2a2a2a';
+            document.getElementById('select-btn').style.color = mode === 'select' ? '#1a1a1a' : '#00ffff';
+        }
+
+        // ========================================
+        // COLOR SELECTION
+        // ========================================
+        function selectColor(color) {
+            currentColor = color;
+            document.querySelectorAll('.color-option').forEach(opt => {
+                opt.classList.remove('selected');
+                if (opt.style.background === color.toLowerCase() || opt.style.background === `rgb(${hexToRgb(color).join(', ')})`) {
+                    opt.classList.add('selected');
+                }
+            });
+        }
+
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? [
+                parseInt(result[1], 16),
+                parseInt(result[2], 16),
+                parseInt(result[3], 16)
+            ] : null;
+        }
+
+        // ========================================
+        // RADIUS CONTROL
+        // ========================================
+        function updateSelectedRadius() {
+            const slider = document.getElementById('radius-slider');
+            const value = parseFloat(slider.value);
+            document.getElementById('radius-value').textContent = value.toFixed(2) + 'mm';
+
+            if (selectedElement && selectedElement.type === 'lens') {
+                const lens = lenses.find(l => l.id === selectedElement.id);
+                if (lens) {
+                    // Check if new radius would cause collision
+                    const oldRadius = lens.radius;
+                    lens.radius = value;
+
+                    if (checkCollisions(lens)) {
+                        // Collision! Revert
+                        lens.radius = oldRadius;
+                        slider.value = oldRadius;
+                        document.getElementById('radius-value').textContent = oldRadius.toFixed(2) + 'mm';
+                        alert('Cannot resize: would cause overlap with another element');
+                    }
+
+                    render();
+                    updateLensList();
+                }
+            }
+        }
+
+        // ========================================
+        // CANVAS INTERACTION
+        // ========================================
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = ((e.clientX - rect.left) / SCALE);
+            const y = ((e.clientY - rect.top) / SCALE);
+
+            if (mode === 'add-lens') {
+                addLens(x, y);
+            } else if (mode === 'add-anchor') {
+                addAnchor(x, y);
+            } else if (mode === 'add-leg') {
+                handleLegCreation(x, y);
+            } else if (mode === 'select') {
+                handleSelect(x, y, e);
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (dragging && selectedElement) {
+                const rect = canvas.getBoundingClientRect();
+                const x = (e.clientX - rect.left) / SCALE;
+                const y = (e.clientY - rect.top) / SCALE;
+
+                const newX = x - dragOffset.x;
+                const newY = y - dragOffset.y;
+
+                if (selectedElement.type === 'lens') {
+                    const lens = lenses.find(l => l.id === selectedElement.id);
+                    if (lens) {
+                        const oldPos = { x: lens.x, y: lens.y };
+                        lens.x = Math.max(lens.radius, Math.min(CANVAS_WIDTH - lens.radius, newX));
+                        lens.y = Math.max(lens.radius, Math.min(CANVAS_HEIGHT - lens.radius, newY));
+
+                        if (checkCollisions(lens)) {
+                            lens.x = oldPos.x;
+                            lens.y = oldPos.y;
+                        }
+                        render();
+                    }
+                } else if (selectedElement.type === 'anchor') {
+                    const anchor = anchors.find(a => a.id === selectedElement.id);
+                    if (anchor) {
+                        const oldPos = { x: anchor.x, y: anchor.y };
+                        anchor.x = Math.max(anchor.radius, Math.min(CANVAS_WIDTH - anchor.radius, newX));
+                        anchor.y = Math.max(anchor.radius, Math.min(CANVAS_HEIGHT - anchor.radius, newY));
+
+                        if (checkCollisions(anchor)) {
+                            anchor.x = oldPos.x;
+                            anchor.y = oldPos.y;
+                        }
+                        render();
+                    }
+                }
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            dragging = false;
+        });
+
+        function handleSelect(x, y, e) {
+            // Check if clicking on a leg first (higher priority for easier selection)
+            for (let i = 0; i < legs.length; i++) {
+                const leg = legs[i];
+                const fromElement = findElement(leg.fromId);
+                if (!fromElement) continue;
+
+                const fromPos = getLegAttachmentPoint(fromElement, leg.position);
+                const legLength = leg.length || 50; // Use custom length or default
+                const legWidth = 1.2; // mm
+
+                // Check if click is within leg rectangle
+                const legX = fromPos.x;
+                const legY1 = fromPos.y;
+                const legY2 = fromPos.y + legLength;
+
+                if (x >= legX - legWidth/2 && x <= legX + legWidth/2 &&
+                    y >= Math.min(legY1, legY2) && y <= Math.max(legY1, legY2)) {
+                    selectedElement = { type: 'leg', index: i };
+                    updateLegControls(leg, legLength);
+                    render();
+                    updateLensList();
+                    return;
+                }
+            }
+
+            // Check if clicking on a lens
+            for (let lens of lenses) {
+                const dist = Math.sqrt((x - lens.x) ** 2 + (y - lens.y) ** 2);
+                if (dist <= lens.radius) {
+                    selectedElement = { type: 'lens', id: lens.id };
+                    dragging = true;
+                    dragOffset = { x: x - lens.x, y: y - lens.y };
+
+                    // Update radius slider, hide leg controls
+                    document.getElementById('radius-slider').value = lens.radius;
+                    document.getElementById('radius-value').textContent = lens.radius.toFixed(2) + 'mm';
+                    document.getElementById('leg-controls').style.display = 'none';
+
+                    render();
+                    updateLensList();
+                    return;
+                }
+            }
+
+            // Check if clicking on an anchor
+            for (let anchor of anchors) {
+                const dist = Math.sqrt((x - anchor.x) ** 2 + (y - anchor.y) ** 2);
+                if (dist <= anchor.radius) {
+                    selectedElement = { type: 'anchor', id: anchor.id };
+                    dragging = true;
+                    dragOffset = { x: x - anchor.x, y: y - anchor.y };
+                    document.getElementById('leg-controls').style.display = 'none';
+                    render();
+                    updateLensList();
+                    return;
+                }
+            }
+
+            // Clicked empty space
+            selectedElement = null;
+            document.getElementById('leg-controls').style.display = 'none';
+            render();
+            updateLensList();
+        }
+
+        // ========================================
+        // ADD ELEMENTS
+        // ========================================
+        function addLens(x, y) {
+            const defaultRadius = parseFloat(document.getElementById('radius-slider').value);
+
+            // Constrain to canvas bounds
+            const constrainedX = Math.max(defaultRadius, Math.min(CANVAS_WIDTH - defaultRadius, x));
+            const constrainedY = Math.max(defaultRadius, Math.min(CANVAS_HEIGHT - defaultRadius, y));
+
+            const newLens = {
+                id: nextId++,
+                x: constrainedX,
+                y: constrainedY,
+                radius: defaultRadius,
+                color: currentColor
+            };
+
+            // Check for collisions
+            if (checkCollisions(newLens)) {
+                alert('Cannot place lens here: would overlap with existing element');
+                return;
+            }
+
+            lenses.push(newLens);
+            selectedElement = { type: 'lens', id: newLens.id };
+
+            render();
+            updateLensList();
+            setMode('select');
+        }
+
+        function addAnchor(x, y) {
+            const anchorRadius = 3.18; // 6.36mm diameter / 2
+
+            // Allow anchor anywhere in canvas
+            const constrainedX = Math.max(anchorRadius, Math.min(CANVAS_WIDTH - anchorRadius, x));
+            const constrainedY = Math.max(anchorRadius, Math.min(CANVAS_HEIGHT - anchorRadius, y));
+
+            const newAnchor = {
+                id: nextId++,
+                x: constrainedX,
+                y: constrainedY,
+                radius: anchorRadius
+            };
+
+            // Check for collisions
+            if (checkCollisions(newAnchor)) {
+                alert('Cannot place anchor here: would overlap with existing element');
+                return;
+            }
+
+            anchors.push(newAnchor);
+            selectedElement = { type: 'anchor', id: newAnchor.id };
+
+            render();
+            updateLensList();
+            setMode('select');
+        }
+
+        // ========================================
+        // COLLISION DETECTION
+        // ========================================
+        function checkCollisions(element) {
+            // Check against all lenses
+            for (let lens of lenses) {
+                if (lens.id === element.id) continue;
+                const dist = Math.sqrt((element.x - lens.x) ** 2 + (element.y - lens.y) ** 2);
+                const minDist = element.radius + lens.radius + OVERLAP_TOLERANCE;
+                if (dist < minDist) return true;
+            }
+
+            // Check against all anchors
+            for (let anchor of anchors) {
+                if (anchor.id === element.id) continue;
+                const dist = Math.sqrt((element.x - anchor.x) ** 2 + (element.y - anchor.y) ** 2);
+                const minDist = element.radius + anchor.radius + OVERLAP_TOLERANCE;
+                if (dist < minDist) return true;
+            }
+
+            return false;
+        }
+
+        // ========================================
+        // RENDERING
+        // ========================================
+        function render() {
+            // Clear canvas
+            ctx.fillStyle = '#2a2a2a';
+            ctx.fillRect(0, 0, CANVAS_PX_WIDTH, CANVAS_PX_HEIGHT);
+
+            // Draw workspace boundary
+            ctx.strokeStyle = '#444';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(0, 0, CANVAS_PX_WIDTH, CANVAS_PX_HEIGHT);
+
+            // Draw legs (anchors can be anywhere, so no fixed ground line)
+            drawLegs();
+
+            // Draw anchors
+            for (let anchor of anchors) {
+                const isSelected = selectedElement && selectedElement.type === 'anchor' && selectedElement.id === anchor.id;
+                drawAnchor(anchor, isSelected);
+            }
+
+            // Draw lenses
+            for (let lens of lenses) {
+                const isSelected = selectedElement && selectedElement.type === 'lens' && selectedElement.id === lens.id;
+                drawLens(lens, isSelected);
+            }
+        }
+
+        function drawLens(lens, isSelected) {
+            const px = lens.x * SCALE;
+            const py = lens.y * SCALE;
+            const pr = lens.radius * SCALE;
+            const frameThickness = 1.2 * SCALE; // 1.2mm frame wall thickness
+
+            // Lens fill (colored area)
+            ctx.fillStyle = lens.color;
+            ctx.globalAlpha = 0.5;
+            ctx.beginPath();
+            ctx.arc(px, py, pr, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+
+            // Frame outer edge
+            ctx.strokeStyle = isSelected ? '#00ffff' : '#ffffff';
+            ctx.lineWidth = isSelected ? 3 : 2;
+            ctx.beginPath();
+            ctx.arc(px, py, pr, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Frame inner edge (channel where lens sits) - radius - 1.2mm
+            ctx.strokeStyle = isSelected ? '#00ffff' : '#999';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(px, py, pr - frameThickness, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Center dot
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(px, py, 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Label
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '10px Courier New';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${(lens.radius * 2).toFixed(1)}mm`, px, py - pr - 8);
+        }
+
+        function drawAnchor(anchor, isSelected) {
+            const px = anchor.x * SCALE;
+            const py = anchor.y * SCALE; // Use anchor's stored Y position
+            const pr = anchor.radius * SCALE; // 3.18mm radius = 6.36mm diameter
+
+            // Anchor circle (solid fill)
+            ctx.fillStyle = '#ff00ff';
+            ctx.globalAlpha = 0.7;
+            ctx.beginPath();
+            ctx.arc(px, py, pr, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+
+            // Outline
+            ctx.strokeStyle = isSelected ? '#00ffff' : '#ffffff';
+            ctx.lineWidth = isSelected ? 3 : 2;
+            ctx.beginPath();
+            ctx.arc(px, py, pr, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Center square hole (2.8mm as specified in SCAD)
+            const squareSize = 2.8 * SCALE;
+            ctx.fillStyle = '#2a2a2a';
+            ctx.fillRect(px - squareSize/2, py - squareSize/2, squareSize, squareSize);
+
+            // Square outline
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(px - squareSize/2, py - squareSize/2, squareSize, squareSize);
+        }
+
+        function drawLegs() {
+            const legWidth = 1.2 * SCALE; // 1.2mm leg thickness
+
+            for (let i = 0; i < legs.length; i++) {
+                const leg = legs[i];
+                const fromElement = findElement(leg.fromId);
+                const toElement = findElement(leg.toId);
+
+                if (!fromElement) continue;
+
+                // Calculate attachment points
+                const fromPos = getLegAttachmentPoint(fromElement, leg.position);
+
+                // For VERTICAL legs, X stays the same, only Y changes
+                let toPos = { x: fromPos.x, y: 0 };
+
+                // Use custom length if specified, otherwise calculate based on target
+                if (leg.length !== undefined) {
+                    // Manual length - just go straight down for the specified distance
+                    toPos.y = fromPos.y + leg.length;
+                } else if (toElement) {
+                    // Auto-calculate based on target element
+                    if (toElement.type === 'lens') {
+                        // Overlap INTO the target lens by a small amount for boolean CSG
+                        toPos.y = toElement.y - toElement.radius + 2; // 2mm penetration
+                    } else if (toElement.type === 'anchor') {
+                        // Overlap INTO the anchor
+                        toPos.y = toElement.y + 1; // 1mm penetration
+                    }
+                }
+
+                // Check if this leg is selected
+                const isSelected = selectedElement && selectedElement.type === 'leg' && selectedElement.index === i;
+
+                // Draw leg as rectangle (width = 1.2mm)
+                ctx.fillStyle = isSelected ? '#ffff00' : '#00ff00';
+                ctx.globalAlpha = isSelected ? 0.9 : 0.8;
+                ctx.fillRect(
+                    fromPos.x * SCALE - legWidth/2,
+                    fromPos.y * SCALE,
+                    legWidth,
+                    (toPos.y - fromPos.y) * SCALE
+                );
+                ctx.globalAlpha = 1.0;
+
+                // Draw leg outline for visibility
+                ctx.strokeStyle = isSelected ? '#ffff00' : '#00ff00';
+                ctx.lineWidth = isSelected ? 2 : 0.5;
+                ctx.strokeRect(
+                    fromPos.x * SCALE - legWidth/2,
+                    fromPos.y * SCALE,
+                    legWidth,
+                    (toPos.y - fromPos.y) * SCALE
+                );
+
+                // Draw connection dots
+                ctx.fillStyle = '#00ff00';
+                ctx.beginPath();
+                ctx.arc(fromPos.x * SCALE, fromPos.y * SCALE, 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(toPos.x * SCALE, toPos.y * SCALE, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function getLegAttachmentPoint(element, position) {
+            const radius = element.radius || element.radius;
+            const baseX = element.x;
+            const baseY = element.y;
+
+            // Calculate bottom of circle
+            const bottomY = baseY + radius;
+
+            let offsetX = 0;
+            if (position === 'left') {
+                offsetX = -radius * 0.5;
+            } else if (position === 'right') {
+                offsetX = radius * 0.5;
+            }
+            // center: offsetX = 0
+
+            return { x: baseX + offsetX, y: bottomY };
+        }
+
+        function findElement(id) {
+            const lens = lenses.find(l => l.id === id);
+            if (lens) return { ...lens, type: 'lens' };
+
+            const anchor = anchors.find(a => a.id === id);
+            if (anchor) return { ...anchor, type: 'anchor' };
+
+            return null;
+        }
+
+        // ========================================
+        // LEG GENERATION
+        // ========================================
+        function generateConnections() {
+            legs = [];
+
+            // Sort lenses by Y position (top to bottom)
+            const sortedLenses = [...lenses].sort((a, b) => a.y - b.y);
+
+            for (let i = 0; i < sortedLenses.length; i++) {
+                const lens = sortedLenses[i];
+
+                // Randomly choose 1-2 leg positions for this lens
+                const numLegs = Math.random() < 0.6 ? 1 : 2;
+                const availablePositions = ['left', 'center', 'right'];
+                const chosenPositions = [];
+
+                // Randomly select positions
+                for (let n = 0; n < numLegs; n++) {
+                    if (availablePositions.length === 0) break;
+                    const idx = Math.floor(Math.random() * availablePositions.length);
+                    chosenPositions.push(availablePositions[idx]);
+                    availablePositions.splice(idx, 1);
+                }
+
+                // For each chosen position, trace straight down to find target
+                for (let position of chosenPositions) {
+                    const attachPoint = getLegAttachmentPoint({ ...lens, type: 'lens' }, position);
+                    const legX = attachPoint.x;
+
+                    // Find what this vertical leg will hit first
+                    let closestTarget = null;
+                    let closestDistance = Infinity;
+
+                    // Check all lenses below
+                    for (let j = i + 1; j < sortedLenses.length; j++) {
+                        const candidate = sortedLenses[j];
+                        const topY = candidate.y - candidate.radius;
+
+                        // Check if vertical line from legX intersects this lens
+                        const distToCenter = Math.abs(candidate.x - legX);
+                        if (distToCenter <= candidate.radius && topY > attachPoint.y) {
+                            const distance = topY - attachPoint.y;
+                            if (distance < closestDistance) {
+                                closestDistance = distance;
+                                closestTarget = { ...candidate, type: 'lens' };
+                            }
+                        }
+                    }
+
+                    // If no lens found, connect to ground/anchor
+                    if (!closestTarget) {
+                        // Find nearest anchor or just use ground
+                        if (anchors.length > 0) {
+                            const nearestAnchor = anchors.reduce((nearest, a) => {
+                                const dist = Math.abs(a.x - legX);
+                                const nearestDist = nearest ? Math.abs(nearest.x - legX) : Infinity;
+                                return dist < nearestDist ? a : nearest;
+                            }, null);
+
+                            closestTarget = { ...nearestAnchor, type: 'anchor' };
+                        }
+                    }
+
+                    // Create leg if target found
+                    if (closestTarget) {
+                        legs.push({
+                            fromId: lens.id,
+                            toId: closestTarget.id,
+                            position: position
+                        });
+                    }
+                }
+            }
+
+            render();
+            console.log(`Generated ${legs.length} leg connections`);
+        }
+
+        function clearAllLegs() {
+            legs = [];
+            selectedElement = null;
+            document.getElementById('leg-controls').style.display = 'none';
+            render();
+        }
+
+        // ========================================
+        // LEG MANUAL CONTROLS
+        // ========================================
+        function handleLegCreation(x, y) {
+            // Find if clicking on a lens or anchor
+            let clickedElement = null;
+
+            for (let lens of lenses) {
+                const dist = Math.sqrt((x - lens.x) ** 2 + (y - lens.y) ** 2);
+                if (dist <= lens.radius) {
+                    clickedElement = { type: 'lens', id: lens.id, element: lens };
+                    break;
+                }
+            }
+
+            if (!clickedElement) {
+                for (let anchor of anchors) {
+                    const dist = Math.sqrt((x - anchor.x) ** 2 + (y - anchor.y) ** 2);
+                    if (dist <= anchor.radius) {
+                        clickedElement = { type: 'anchor', id: anchor.id, element: anchor };
+                        break;
+                    }
+                }
+            }
+
+            if (!clickedElement) return;
+
+            if (!legCreationSource) {
+                // First click - set source
+                legCreationSource = clickedElement;
+                document.getElementById('mode-indicator').textContent = '🔗 Add Leg (Click Target)';
+            } else {
+                // Second click - create leg
+                if (legCreationSource.id === clickedElement.id) {
+                    alert('Cannot create leg from element to itself');
+                    return;
+                }
+
+                // Determine a default position (center for now, user can change)
+                const newLeg = {
+                    fromId: legCreationSource.id,
+                    toId: clickedElement.id,
+                    position: 'center',
+                    length: 50 // Default 50mm
+                };
+
+                legs.push(newLeg);
+                legCreationSource = null;
+                setMode('select');
+                render();
+            }
+        }
+
+        function updateLegControls(leg, length) {
+            const controls = document.getElementById('leg-controls');
+            controls.style.display = 'block';
+
+            document.getElementById('leg-length-slider').value = length;
+            document.getElementById('leg-length-value').textContent = length.toFixed(1) + 'mm';
+        }
+
+        function updateSelectedLegLength() {
+            if (!selectedElement || selectedElement.type !== 'leg') return;
+
+            const slider = document.getElementById('leg-length-slider');
+            const length = parseFloat(slider.value);
+            document.getElementById('leg-length-value').textContent = length.toFixed(1) + 'mm';
+
+            legs[selectedElement.index].length = length;
+            render();
+        }
+
+        function changeLegPosition(newPosition) {
+            if (!selectedElement || selectedElement.type !== 'leg') return;
+
+            legs[selectedElement.index].position = newPosition;
+            render();
+        }
+
+        function deleteSelectedLeg() {
+            if (!selectedElement || selectedElement.type !== 'leg') return;
+
+            legs.splice(selectedElement.index, 1);
+            selectedElement = null;
+            document.getElementById('leg-controls').style.display = 'none';
+            render();
+            updateLensList();
+        }
+
+        // ========================================
+        // ELEMENT LIST
+        // ========================================
+        function updateLensList() {
+            const listEl = document.getElementById('lens-list');
+            listEl.innerHTML = '';
+
+            // Sort by Y position (top to bottom)
+            const sortedLenses = [...lenses].sort((a, b) => a.y - b.y);
+
+            for (let lens of sortedLenses) {
+                const div = document.createElement('div');
+                div.className = 'lens-item';
+                if (selectedElement && selectedElement.type === 'lens' && selectedElement.id === lens.id) {
+                    div.classList.add('selected');
+                }
+
+                div.innerHTML = `
+                    <span>Lens ${lens.id} | ${(lens.radius * 2).toFixed(1)}mm | Y:${lens.y.toFixed(0)}mm</span>
+                    <button class="delete-btn" onclick="deleteLens(${lens.id})">×</button>
+                `;
+
+                div.onclick = (e) => {
+                    if (!e.target.classList.contains('delete-btn')) {
+                        selectedElement = { type: 'lens', id: lens.id };
+                        document.getElementById('radius-slider').value = lens.radius;
+                        document.getElementById('radius-value').textContent = lens.radius.toFixed(2) + 'mm';
+                        render();
+                        updateLensList();
+                    }
+                };
+
+                listEl.appendChild(div);
+            }
+
+            // Add anchors
+            for (let anchor of anchors) {
+                const div = document.createElement('div');
+                div.className = 'lens-item anchor';
+                if (selectedElement && selectedElement.type === 'anchor' && selectedElement.id === anchor.id) {
+                    div.classList.add('selected');
+                }
+
+                div.innerHTML = `
+                    <span>⚓ Anchor ${anchor.id} | X:${anchor.x.toFixed(0)}mm</span>
+                    <button class="delete-btn" onclick="deleteAnchor(${anchor.id})">×</button>
+                `;
+
+                div.onclick = (e) => {
+                    if (!e.target.classList.contains('delete-btn')) {
+                        selectedElement = { type: 'anchor', id: anchor.id };
+                        render();
+                        updateLensList();
+                    }
+                };
+
+                listEl.appendChild(div);
+            }
+        }
+
+        function deleteLens(id) {
+            lenses = lenses.filter(l => l.id !== id);
+            legs = legs.filter(leg => leg.fromId !== id && leg.toId !== id);
+            if (selectedElement && selectedElement.id === id) {
+                selectedElement = null;
+            }
+            render();
+            updateLensList();
+        }
+
+        function deleteAnchor(id) {
+            anchors = anchors.filter(a => a.id !== id);
+            legs = legs.filter(leg => leg.fromId !== id && leg.toId !== id);
+            if (selectedElement && selectedElement.id === id) {
+                selectedElement = null;
+            }
+            render();
+            updateLensList();
+        }
+
+        // ========================================
+        // KEYBOARD SHORTCUTS
+        // ========================================
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                if (selectedElement) {
+                    if (selectedElement.type === 'lens') {
+                        deleteLens(selectedElement.id);
+                    } else if (selectedElement.type === 'anchor') {
+                        deleteAnchor(selectedElement.id);
+                    } else if (selectedElement.type === 'leg') {
+                        deleteSelectedLeg();
+                    }
+                }
+            }
+        });
+
+        // ========================================
+        // EXPORT FUNCTIONS
+        // ========================================
+        function exportAllFiles() {
+            if (lenses.length === 0) {
+                alert('No lenses to export!');
+                return;
+            }
+
+            alert('Export functionality coming soon!\n\nWill export:\n• PNG image\n• JSON data\n• SVG lens template\n• SCAD file\n• render.sh script');
+        }
+
+        function clearCanvas() {
+            if (confirm('Clear all lenses, anchors, and legs?')) {
+                lenses = [];
+                anchors = [];
+                legs = [];
+                selectedElement = null;
+                render();
+                updateLensList();
+            }
+        }
+
+        // ========================================
+        // INITIALIZE
+        // ========================================
+        setMode('select');
+        render();
+        updateLensList();
+    </script>
+</body>
+</html>

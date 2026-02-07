@@ -1,0 +1,101 @@
+
+
+
+# prompt: !pip install svgwrite pandas
+
+!pip install svgwrite pandas
+
+Collecting svgwrite
+  Downloading svgwrite-1.4.3-py3-none-any.whl.metadata (8.8 kB)
+Requirement already satisfied: pandas in /usr/local/lib/python3.12/dist-packages (2.2.2)
+Requirement already satisfied: numpy>=1.26.0 in /usr/local/lib/python3.12/dist-packages (from pandas) (2.0.2)
+Requirement already satisfied: python-dateutil>=2.8.2 in /usr/local/lib/python3.12/dist-packages (from pandas) (2.9.0.post0)
+Requirement already satisfied: pytz>=2020.1 in /usr/local/lib/python3.12/dist-packages (from pandas) (2025.2)
+Requirement already satisfied: tzdata>=2022.7 in /usr/local/lib/python3.12/dist-packages (from pandas) (2025.3)
+Requirement already satisfied: six>=1.5 in /usr/local/lib/python3.12/dist-packages (from python-dateutil>=2.8.2->pandas) (1.17.0)
+Downloading svgwrite-1.4.3-py3-none-any.whl (67 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 67.1/67.1 kB 2.5 MB/s eta 0:00:00
+Installing collected packages: svgwrite
+Successfully installed svgwrite-1.4.3
+
+_________________________________________________________________________________
+
+import json
+import svgwrite
+import pandas as pd
+from google.colab import files
+
+# Function to generate the SVG and lens data table with customized layer labels
+def generate_svg_and_table(json_file, output_svg_name):
+    try:
+        data = json.load(json_file)
+        lens_data = []
+        layer_labels = {1: 'Back', 2: 'Middle', 3: 'Front'}  # Custom labels for layers
+
+        for i, layer in enumerate(data['layers']):
+            for j, frame in enumerate(layer['frames']):
+                lens_number = len(lens_data) + 1
+                original_radius = frame['radius']
+                new_diameter = (original_radius - 1.2) * 2
+                lens_color = frame['color']  # Get the color from JSON
+                layer_name = layer_labels.get(i + 1, f'L{i + 1}')  # Get the custom layer name or default to L#
+
+                lens_data.append({
+                    'Lens #': lens_number,
+                    'Layer': layer_name,  # Store the custom layer name
+                    'Original Radius (mm)': round(original_radius, 2),
+                    'New Diameter (mm)': round(new_diameter, 2),
+                    'Color': lens_color  # Store the color for later use
+                })
+
+        lens_df = pd.DataFrame(lens_data)
+        width = 210 * 4
+        height = 297
+        dwg = svgwrite.Drawing(output_svg_name, profile='tiny', size=(f'{width}mm', f'{height}mm'), viewBox=(f'0 0 {width} {height}'))
+        padding = 10
+        x_offset = padding
+        y_offset = padding
+        font_size = 5
+
+        # Draw the circles in the SVG using the color and custom layer names
+        for row in lens_data:
+            radius = row['New Diameter (mm)'] / 2
+            color = row['Color']  # Use the color from JSON
+            layer_info = row['Layer']  # Use the custom layer name
+
+            # Add circle
+            dwg.add(dwg.circle(center=(x_offset + radius, y_offset + radius + font_size + 5), r=radius, fill=color, stroke='black'))
+
+            # Add text with dimension and custom layer info
+            dwg.add(dwg.text(f'{radius * 2:.2f} mm ({layer_info})', insert=(x_offset + radius, y_offset + font_size), font_size=font_size, fill='black', text_anchor="middle"))
+
+            x_offset += radius * 2 + padding
+
+        dwg.save()
+        return lens_df, output_svg_name
+
+    except json.JSONDecodeError:
+        print("Failed to decode JSON.")
+    except Exception as e:
+        print(f"An error occurred while processing the file: {e}")
+
+# Upload and process the JSON file
+uploaded = files.upload()
+
+for file_name in uploaded.keys():
+    output_svg_name = f"lenses_{file_name}.svg"
+    with open(file_name, 'r') as json_file:
+        # Generate the SVG and lens data table
+        lens_df, svg_file = generate_svg_and_table(json_file, output_svg_name)
+
+    # Display the DataFrame with lens data
+    print(lens_df)
+
+    # Download the SVG file
+    files.download(svg_file)
+
+    # Save the lens data to a CSV and download it
+    csv_file = svg_file.replace('.svg', '.csv')
+    lens_df.to_csv(csv_file, index=False)
+    files.download(csv_file)
+
