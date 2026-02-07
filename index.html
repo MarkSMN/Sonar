@@ -1,0 +1,3948 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cycles 2.2 - 250mm Wall Sculpture</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+            display: flex;
+            height: 100vh;
+            background: #000000;
+        }
+        #canvas-container {
+            flex: 1;
+            background: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        #canvas-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+        #canvas {
+            background: #ffffff;
+            display: block;
+        }
+        #thumbnail-gallery {
+            position: absolute;
+            top: 765px;
+            left: 0;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            z-index: 1;
+            pointer-events: none;
+        }
+        .thumbnail-item {
+            flex-shrink: 0;
+            text-align: center;
+            pointer-events: auto;
+        }
+        .thumbnail-item:nth-child(1) {
+            order: 1;
+        }
+        .thumbnail-item:nth-child(2) {
+            order: 4;
+        }
+        .thumbnail-item:nth-child(3) {
+            order: 2;
+        }
+        .thumbnail-item:nth-child(4) {
+            order: 3;
+        }
+        .thumbnail-image {
+            width: 120px;
+            height: 120px;
+            object-fit: cover;
+            border: 2px solid #cccccc;
+            display: block;
+            background: white;
+        }
+        .thumbnail-label {
+            font-size: 10px;
+            color: #888888;
+            margin-top: 4px;
+            font-family: 'Courier New', monospace;
+        }
+        #sidebar {
+            width: 300px;
+            background: #1a1a1a;
+            color: #cccccc;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        #sidebar h1 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            letter-spacing: 1px;
+            color: #ffffff;
+        }
+        .section {
+            margin-bottom: 20px;
+        }
+        .section-title {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            margin-bottom: 10px;
+            color: #888888;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            font-size: 12px;
+        }
+        .info-label {
+            color: #888888;
+        }
+        .info-value {
+            color: #cccccc;
+            font-weight: 500;
+            font-family: monospace;
+        }
+        button {
+            background: #2a2a2a;
+            color: #cccccc;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 12px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 12px;
+            font-weight: 500;
+            transition: background 0.2s;
+            width: 100%;
+            text-align: left;
+        }
+        button:hover {
+            background: #333333;
+            color: #ffffff;
+        }
+        button:active {
+            background: #3a3a3a;
+        }
+        label {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 12px;
+            font-weight: 400;
+            cursor: pointer;
+            color: #cccccc;
+        }
+        input[type="checkbox"] {
+            margin-right: 8px;
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            accent-color: #666666;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container">
+        <div id="canvas-wrapper">
+            <canvas id="canvas" width="1200" height="900"></canvas>
+        </div>
+        <div id="thumbnail-gallery">
+            <!-- Thumbnails will be added here -->
+        </div>
+    </div>
+
+    <div id="sidebar">
+        <h1 style="font-size: 24px; color: #ffffff; font-weight: 600;">CYCLES 2.2</h1>
+        <p style="font-size: 11px; color: #999; margin-top: 4px; margin-bottom: 12px;">250mm Wall Sculpture</p>
+
+        <div class="section">
+            <div class="section-title">Instructions</div>
+            <div style="font-size: 12px; line-height: 1.6; color: #999999;">
+                <p style="margin-bottom: 8px;">Drag anchors to adjust triangulation</p>
+                <p style="margin-bottom: 8px;">A: Add random lens (at mouse)</p>
+                <p style="margin-bottom: 8px;">Click lens + D: Delete lens</p>
+                <p style="margin-bottom: 8px;">Click lens + K: Remove legs</p>
+                <p style="margin-bottom: 8px;">Click lens + R: Cycle leg type</p>
+                <p style="margin-bottom: 8px;">Click lens + ↑/↓: Resize lens</p>
+                <p style="margin-bottom: 8px;">Space: New composition</p>
+                <p style="margin-bottom: 8px;">Z: Cycle lens strategy</p>
+                <p style="margin-bottom: 8px;">N: Regenerate lenses</p>
+                <p style="margin-bottom: 8px;">J: Cycle leg strategy</p>
+                <p style="margin-bottom: 8px;">M: Regenerate legs</p>
+                <p style="margin-bottom: 8px;">B: Cycle bridge</p>
+                <p style="margin-bottom: 8px;">Shift+B: Add bridge</p>
+                <p style="margin-bottom: 8px;">Alt+B: Delete last bridge</p>
+                <p style="margin-bottom: 8px;">P: Cycle color palette</p>
+                <p style="margin-bottom: 8px;">L: Toggle legs display</p>
+                <p>C: Toggle colors</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Export</div>
+            <div style="margin-bottom: 12px;">
+                <label for="folderName" style="display: block; margin-bottom: 4px; font-size: 11px; color: #999;">Folder Name:</label>
+                <input type="text" id="folderName" value="CYCLES-250-001" style="width: 100%; padding: 6px; background: #2a2a2a; border: 1px solid #555; color: #fff; font-size: 12px; border-radius: 3px;">
+            </div>
+            <button onclick="exportAllFiles()" style="background: #3a3a3a; color: #00ff00; font-weight: 600;">Commit Composition</button>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Display</div>
+            <label>
+                <input type="checkbox" id="showLegs" checked onchange="draw()">
+                Show Legs
+            </label>
+            <label>
+                <input type="checkbox" id="showColors" checked onchange="draw()">
+                Colored Lenses
+            </label>
+            <label>
+                <input type="checkbox" id="stealthMode" onchange="draw()">
+                Stealth Mode
+            </label>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Composition Info</div>
+            <div class="info-row">
+                <span class="info-label">Lens Strategy</span>
+                <span class="info-value" id="strategy-name">Dense Packing</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Leg Strategy</span>
+                <span class="info-value" id="leg-strategy-name">Minimal Support</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Rings</span>
+                <span class="info-value" id="circle-count">0</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Bridges</span>
+                <span class="info-value" id="bridge-count">0</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Attempts</span>
+                <span class="info-value" id="attempts">0</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Palette</span>
+                <span class="info-value" id="palette-name">Full Range</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Seed</span>
+                <span class="info-value" id="seed-display">-</span>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Specifications</div>
+            <div class="info-row">
+                <span class="info-label">Leg Thickness</span>
+                <span class="info-value">1.2mm</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Lens Thickness</span>
+                <span class="info-value">2.4mm</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Anchor Diameter</span>
+                <span class="info-value">6.36mm</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Max Leg Count</span>
+                <span class="info-value">5</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Real-world dimensions in mm
+        const LEG_THICKNESS = 1.2;      // mm
+        const LENS_THICKNESS = 2.4;     // mm (ring frame)
+        const ANCHOR_DIAMETER = 6.36;   // mm (circle diameter)
+        const ANCHOR_HOLE_SIZE = 2.8;   // mm (square hole)
+
+        // Scale for display
+        const SCALE = 2.4;              // Adjusted for 250mm workspace to fit 1200px canvas
+        const CENTER_X = canvas.width / 2;
+        const CENTER_Y = canvas.height / 2;
+        const BOUNDARY = 250;           // mm (work area) - WALL SCULPTURE 250mm × 250mm print bed
+
+        // User-adjustable parameters
+        let MAX_LENS_COUNT = 25;        // Increased for larger workspace
+        let MAX_LEG_COUNT = 8;          // Increased for larger workspace
+
+        let anchors = [];
+        let rings = [];
+        let attempts = 0;
+        let currentSeed = Date.now();
+        let lensSeed = Date.now();
+        let legSeed = Date.now();
+
+        // Strategy system
+        let currentStrategy = 0;
+        const STRATEGIES = [
+            {
+                name: 'Dense Packing',
+                description: 'Pack as many lenses as fit',
+                minLenses: 15,
+                maxLenses: 25,
+                radiusMode: 'weighted_random'
+            },
+            {
+                name: 'Sparse Giant',
+                description: '3-6 huge lenses only',
+                minLenses: 3,
+                maxLenses: 6,
+                radiusMode: 'large_only'
+            },
+            {
+                name: 'Minimalist',
+                description: '1-3 massive lenses',
+                minLenses: 1,
+                maxLenses: 3,
+                radiusMode: 'maximal'
+            },
+            {
+                name: 'Top-Heavy',
+                description: 'Cluster in upper half, long legs',
+                minLenses: 8,
+                maxLenses: 15,
+                radiusMode: 'weighted_random',
+                constraint: 'upper_half'
+            },
+            {
+                name: 'Bottom-Heavy',
+                description: 'Cluster in lower half, short legs',
+                minLenses: 8,
+                maxLenses: 15,
+                radiusMode: 'weighted_random',
+                constraint: 'lower_half'
+            },
+            {
+                name: 'Ring Formation',
+                description: 'Hollow center, lenses around edges',
+                minLenses: 10,
+                maxLenses: 18,
+                radiusMode: 'weighted_random',
+                constraint: 'ring'
+            },
+            {
+                name: 'Micro Cluster',
+                description: 'Many tiny lenses',
+                minLenses: 12,
+                maxLenses: 16,
+                radiusMode: 'small_only'
+            },
+            {
+                name: 'Micro Cluster (OG)',
+                description: 'Original tangent chain (6-10 lenses)',
+                minLenses: 6,
+                maxLenses: 10,
+                radiusMode: 'small_only_og'
+            },
+            {
+                name: 'Twins',
+                description: 'Only 2-3 sizes repeated',
+                minLenses: 10,
+                maxLenses: 18,
+                radiusMode: 'twins'
+            },
+            {
+                name: 'Apollonian',
+                description: '3-anchor tangent base + nested fill',
+                minLenses: 1,
+                maxLenses: 15,
+                radiusMode: 'apollonian'
+            },
+            {
+                name: 'Halo',
+                description: 'One giant lens + swarm of tiny lenses',
+                minLenses: 20,
+                maxLenses: 35,
+                radiusMode: 'halo'
+            }
+        ];
+
+        // Leg Strategy system
+        let currentLegStrategy = 0;
+        const LEG_STRATEGIES = [
+            {
+                name: 'Minimal Support',
+                description: 'Sparse legs, focus on bridges',
+                legDensity: 0.35,  // 35% of lenses get legs
+                legTypes: ['single', 'none', 'curved_lc', 'curved_cr'],
+                bridgeCount: { min: 1, max: 3, weights: [0.5, 0.35, 0.15] } // 50% 1 bridge, 35% 2, 15% 3
+            },
+            {
+                name: 'Heavy Foundation',
+                description: 'All double legs, very grounded',
+                legDensity: 1.0,   // 100% of lenses get legs
+                legTypes: ['double', 'double', 'double', 'single'], // Heavily weighted to double
+                bridgeCount: { min: 0, max: 0, weights: [1.0] } // No bridges
+            },
+            {
+                name: 'Bridge Network',
+                description: 'Maximum bridges, minimal ground',
+                legDensity: 0.2,   // Only 20% ground legs
+                legTypes: ['single', 'none', 'none'],
+                bridgeCount: { min: 2, max: 4, weights: [0.35, 0.40, 0.25] } // 35% 2, 40% 3, 25% 4
+            },
+            {
+                name: 'Organic Flow',
+                description: 'Only curved legs, flowing forms',
+                legDensity: 0.6,   // 60% of lenses
+                legTypes: ['curved_lc', 'curved_cr', 'curved_lr', 'none'],
+                bridgeCount: { min: 0, max: 2, weights: [0.5, 0.3, 0.2] } // 50% 0, 30% 1, 20% 2
+            },
+            {
+                name: 'Geometric Clean',
+                description: 'Only straight legs, no curves',
+                legDensity: 0.7,   // 70% of lenses
+                legTypes: ['single', 'double', 'left_only', 'right_only'],
+                bridgeCount: { min: 0, max: 0, weights: [1.0] } // No bridges
+            },
+            {
+                name: 'Asymmetric',
+                description: 'Left/right only, dynamic tension',
+                legDensity: 0.8,   // 80% of lenses
+                legTypes: ['left_only', 'right_only', 'left_only', 'right_only', 'none'],
+                bridgeCount: { min: 0, max: 2, weights: [0.4, 0.4, 0.2] } // 40% 0, 40% 1, 20% 2
+            },
+            {
+                name: 'Balanced',
+                description: 'Even distribution, all types',
+                legDensity: 0.65,  // 65% of lenses
+                legTypes: ['single', 'double', 'left_only', 'right_only', 'curved_lc', 'curved_cr', 'curved_lr', 'none'],
+                bridgeCount: { min: 1, max: 4, weights: [0.5, 0.25, 0.15, 0.10] } // 50% 1, 25% 2, 15% 3, 10% 4
+            }
+        ];
+
+        // Thumbnail gallery (max 4)
+        let thumbnails = [];
+
+        // Dragging state
+        let draggedAnchor = null;
+        let draggedLens = null;
+        let isDragging = false;
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+
+        // Selected lens for leg editing
+        let selectedLens = null;
+
+        // Mouse position tracking for "A" key lens placement
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+
+        // Color palettes for lenses
+        const COLOR_PALETTES = {
+            'full_range': {
+                name: 'Full Range',
+                colors: ['#F4E8A0', '#E8C5A0', '#E8C4D5', '#A0B0E8', '#C4A0E8', '#999999']
+            },
+            'light_triad': {
+                name: 'Light Value Triad',
+                colors: ['#F4E8A0', '#E8C5A0', '#E8C4D5']
+            },
+            'dark_triad': {
+                name: 'Dark Value Triad',
+                colors: ['#A0B0E8', '#C4A0E8', '#999999']
+            },
+            'yellow_blue': {
+                name: 'Yellow + Blue (Green Mix)',
+                colors: ['#F4E8A0', '#A0B0E8']
+            },
+            'unique_triad': {
+                name: 'Unique Triad',
+                colors: ['#F4E8A0', '#C4A0E8', '#999999']
+            },
+            'yellow_mono': {
+                name: 'Monochrome Yellow',
+                colors: ['#F4E8A0']
+            },
+            'orange_mono': {
+                name: 'Monochrome Orange',
+                colors: ['#E8C5A0']
+            },
+            'pink_mono': {
+                name: 'Monochrome Pink',
+                colors: ['#E8C4D5']
+            },
+            'blue_mono': {
+                name: 'Monochrome Blue',
+                colors: ['#A0B0E8']
+            },
+            'purple_mono': {
+                name: 'Monochrome Purple',
+                colors: ['#C4A0E8']
+            },
+            'black_mono': {
+                name: 'Monochrome Black',
+                colors: ['#999999']
+            },
+            'warm_triad': {
+                name: 'Warm Triad (with Red)',
+                colors: ['#F4E8A0', '#E8C5A0', '#E89090']
+            }
+        };
+
+        const PALETTE_ORDER = [
+            'full_range',
+            'light_triad',
+            'dark_triad',
+            'yellow_blue',
+            'unique_triad',
+            'yellow_mono',
+            'orange_mono',
+            'pink_mono',
+            'blue_mono',
+            'purple_mono',
+            'black_mono',
+            'warm_triad'
+        ];
+
+        let currentPaletteIndex = 0;
+        let LENS_COLORS = COLOR_PALETTES[PALETTE_ORDER[currentPaletteIndex]].colors;
+
+        // Seeded random
+        function seededRandom(seed) {
+            let state = seed;
+            return function() {
+                state = (state * 9301 + 49297) % 233280;
+                return state / 233280;
+            };
+        }
+
+        let rng = seededRandom(currentSeed);
+
+        // Leg type assignment with probability distribution
+        function assignLegType(rng, lensX = 0, lensY = 0, lensRadius = 0) {
+            // Normal leg type assignment - all legs touch ground
+            const r = rng();
+
+            if (r < 0.25) return 'single';        // 25% single straight (center)
+            if (r < 0.45) return 'double';        // 20% double straight
+            if (r < 0.55) return 'left_only';     // 10% left straight only
+            if (r < 0.65) return 'right_only';    // 10% right straight only
+            if (r < 0.72) return 'curved_lc';     // 7% curved left-center
+            if (r < 0.79) return 'curved_cr';     // 7% curved center-right
+            if (r < 0.85) return 'curved_lr';     // 6% curved left-right
+            if (r < 0.95) return 'curved_adjacent'; // 10% curved adjacent bridge
+            return 'none';                        // 5% no legs
+        }
+
+        // Regenerate lenses while keeping anchors static
+        function regenerateLenses() {
+            if (anchors.length === 0) return;
+
+            // Keep anchors, regenerate rings using CURRENT strategy
+            console.log('🔄 Regenerating lenses with current strategy:', STRATEGIES[currentStrategy].name);
+            generateWithStrategy();
+        }
+
+        // Cycle to next strategy and regenerate with same anchors
+        function cycleStrategy() {
+            if (anchors.length === 0) return;
+
+            // Increment strategy (cycle back to 0 after last)
+            currentStrategy = (currentStrategy + 1) % STRATEGIES.length;
+
+            console.log('🎯 Switching to strategy:', STRATEGIES[currentStrategy].name);
+
+            // Regenerate with new strategy
+            generateWithStrategy();
+        }
+
+        // Generate composition using current strategy
+        function generateWithStrategy() {
+            const strategy = STRATEGIES[currentStrategy];
+
+            console.log('📐 Generating with strategy:', strategy.name, '| Mode:', strategy.radiusMode, '| Range:', strategy.minLenses, '-', strategy.maxLenses);
+
+            // Generate new lens seed
+            lensSeed = Date.now();
+            legSeed = Date.now();
+
+            // Use lensSeed for circle packing
+            rng = seededRandom(lensSeed);
+            attempts = 0;
+
+            rings = [];
+
+            // Apply strategy-specific generation
+            const range = strategy.maxLenses - strategy.minLenses;
+            const targetCount = Math.floor(rng() * (range + 1)) + strategy.minLenses;
+
+            console.log('🎲 Target lens count:', targetCount);
+
+            switch(strategy.radiusMode) {
+                case 'weighted_random':
+                    // Dense Packing, Top-Heavy, Bottom-Heavy, Ring Formation
+                    for (let i = 0; i < targetCount; i++) {
+                        step();
+                    }
+                    break;
+
+                case 'large_only':
+                    // Sparse Giant - huge lenses only
+                    for (let i = 0; i < targetCount; i++) {
+                        stepLargeOnly();
+                    }
+                    break;
+
+                case 'small_only':
+                    // Micro Cluster - tiny lenses only
+                    // Keep trying until we hit target or max total attempts
+                    const maxTotalAttempts = targetCount * 5000; // Very high for micro clusters
+                    let totalAttempts = 0;
+                    let consecutiveFailures = 0;
+                    const maxConsecutiveFailures = 10; // Allow 10 failures before giving up (more persistent)
+
+                    while (rings.length < targetCount && totalAttempts < maxTotalAttempts) {
+                        const beforeCount = rings.length;
+                        stepSmallOnly();
+                        totalAttempts += 500; // Each step tries 500 times
+
+                        // Track consecutive failures
+                        if (rings.length === beforeCount) {
+                            consecutiveFailures++;
+                            if (consecutiveFailures >= maxConsecutiveFailures) {
+                                console.log(`⚠️ Micro Cluster stopped early: ${rings.length}/${targetCount} lenses placed (${consecutiveFailures} consecutive failures)`);
+                                break;
+                            }
+                        } else {
+                            // Reset failure counter when we successfully place a lens
+                            consecutiveFailures = 0;
+                        }
+                    }
+                    console.log(`✅ Micro Cluster: ${rings.length} lenses placed (target: ${targetCount})`);
+                    break;
+
+                case 'small_only_og':
+                    // Micro Cluster (OG) - original implementation with early stopping
+                    // Recreates the classic "6-10 lens chain" behavior
+                    const ogStartTime = Date.now();
+                    const ogTimeout = 2000; // 2 second max runtime
+                    let ogAttempts = 0;
+                    const ogMaxAttempts = 20; // HARD CAP to prevent any freezing!
+                    let ogConsecutiveFailures = 0;
+
+                    while (rings.length < targetCount && ogAttempts < ogMaxAttempts) {
+                        // Safety: timeout check
+                        if (Date.now() - ogStartTime > ogTimeout) {
+                            console.log(`⚠️ Micro Cluster (OG) timeout after 2 seconds at ${rings.length}/${targetCount} lenses`);
+                            break;
+                        }
+
+                        const beforeCount = rings.length;
+                        stepSmallOnlyOG();
+                        ogAttempts++;
+
+                        // Original behavior: give up after consecutive failures
+                        if (rings.length === beforeCount) {
+                            ogConsecutiveFailures++;
+                            if (ogConsecutiveFailures >= 2) {
+                                console.log(`⚠️ Micro Cluster (OG) stopped at ${rings.length}/${targetCount} lenses (classic chain behavior - gave up after 2 consecutive failures)`);
+                                break;
+                            }
+                        } else {
+                            ogConsecutiveFailures = 0; // Reset on success
+                        }
+                    }
+
+                    if (ogAttempts >= ogMaxAttempts) {
+                        console.log(`⚠️ Micro Cluster (OG) hit max attempts (20) at ${rings.length}/${targetCount} lenses`);
+                    }
+                    console.log(`✅ Micro Cluster (OG): ${rings.length} lenses`);
+                    break;
+
+                case 'maximal':
+                    // Minimalist - each lens as large as possible
+                    for (let i = 0; i < targetCount; i++) {
+                        stepMaximal();
+                    }
+                    break;
+
+                case 'twins':
+                    // Twins - only 2-3 repeated sizes
+                    generateTwins(targetCount);
+                    break;
+
+                case 'apollonian':
+                    // Apollonian - 3-anchor tangent base + nested fill
+                    generateApollonian(targetCount);
+                    break;
+
+                case 'halo':
+                    // Halo - one giant lens + swarm of tiny lenses
+                    generateHalo(targetCount);
+                    break;
+            }
+
+            // Regenerate legs and update display
+            regenerateLegs();
+            updateInfo();
+        }
+
+        // Get leg count for a leg type (single=1, double=2, curved=1-2)
+        function getLegCount(legType) {
+            // Handle object-based leg types
+            if (typeof legType === 'object') {
+                if (legType.type === 'floating_double_asymmetric') return 2;
+                if (legType.type === 'curved_lr_floating') return 2;
+                if (legType.type === 'curved_lc_floating' || legType.type === 'curved_cr_floating') return 2;
+                return 1; // floating_single
+            }
+            // Handle string-based leg types
+            if (legType === 'double' || legType === 'floating_double') return 2;
+            if (legType === 'curved_lr') return 2;
+            if (legType === 'curved_lc' || legType === 'curved_cr') return 2;
+            if (legType === 'none') return 0;
+            return 1; // single, left_only, right_only, curved_adjacent
+        }
+
+        // Find adjacent (tangent) rings - returns index or -1
+        function findAdjacentRing(ringIndex) {
+            const ring = rings[ringIndex];
+            const TANGENT_TOLERANCE = 3; // 3mm tolerance for tangency
+
+            for (let i = 0; i < rings.length; i++) {
+                if (i === ringIndex) continue;
+
+                const other = rings[i];
+                const dx = ring.x - other.x;
+                const dy = ring.y - other.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const expectedDist = ring.radius + other.radius;
+
+                // Check if rings are tangent (within tolerance)
+                if (Math.abs(dist - expectedDist) < TANGENT_TOLERANCE) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
+        // Track occupied attachment points for each ring
+        // occupiedPoints[ringIndex] = Set of 'L', 'C', 'R'
+        let occupiedPoints = [];
+
+        // Bridge connections array
+        let bridges = [];
+
+        // Regenerate legs while keeping rings and anchors static
+        function regenerateLegs() {
+            if (rings.length === 0) return;
+
+            // Generate new leg seed
+            legSeed = Date.now();
+            const legRng = seededRandom(legSeed);
+
+            // Get current leg strategy
+            const strategy = LEG_STRATEGIES[currentLegStrategy];
+
+            console.log(`🦵 Regenerating legs with strategy: ${strategy.name}`);
+
+            // First, set all rings to 'none' and clear adjacentRingIndex
+            rings.forEach(ring => {
+                ring.legType = 'none';
+                ring.adjacentRingIndex = -1;
+            });
+
+            // Clear bridges and occupied points
+            bridges = [];
+            occupiedPoints = rings.map(() => new Set());
+
+            // Determine how many lenses get legs based on strategy density
+            const targetLeggedLenses = Math.floor(rings.length * strategy.legDensity);
+
+            // Build legs up to max count
+            let currentLegCount = 0;
+            const availableIndices = rings.map((_, i) => i);
+
+            // Shuffle available indices
+            for (let i = availableIndices.length - 1; i > 0; i--) {
+                const j = Math.floor(legRng() * (i + 1));
+                [availableIndices[i], availableIndices[j]] = [availableIndices[j], availableIndices[i]];
+            }
+
+            // Assign legs based on strategy
+            let legsAssigned = 0;
+            for (let i = 0; i < availableIndices.length && legsAssigned < targetLeggedLenses && currentLegCount < MAX_LEG_COUNT; i++) {
+                const ringIndex = availableIndices[i];
+                const ring = rings[ringIndex];
+
+                // ✨ NEW: Use smart leg assignment that checks for anchors and creates floating/suspended legs
+                const legType = assignLegType(legRng, ring.x, ring.y, ring.radius);
+
+                // Handle object-based leg types (suspended, floating)
+                const legTypeString = (typeof legType === 'object') ? legType.type : legType;
+
+                // Skip 'none' if we haven't assigned enough legs yet
+                if (legTypeString === 'none' && legsAssigned < targetLeggedLenses) {
+                    continue;
+                }
+
+                // If curved_adjacent, check if there's an adjacent ring available
+                if (legTypeString === 'curved_adjacent') {
+                    const adjacentIndex = findAdjacentRing(ringIndex);
+                    if (adjacentIndex !== -1 && rings[adjacentIndex].legType === 'none') {
+                        // Valid adjacent pair found
+                        rings[ringIndex].adjacentRingIndex = adjacentIndex;
+                    } else {
+                        // No valid adjacent ring, skip or fallback
+                        continue;
+                    }
+                }
+
+                const legCount = getLegCount(legTypeString);
+
+                // Check if adding this leg would exceed max
+                if (currentLegCount + legCount <= MAX_LEG_COUNT) {
+                    rings[ringIndex].legType = legType;
+                    currentLegCount += legCount;
+                    if (legTypeString !== 'none') legsAssigned++;
+
+                    // Mark attachment points as occupied
+                    markAttachmentPoints(ringIndex, legType);
+                } else if (currentLegCount < MAX_LEG_COUNT) {
+                    // We have room for a single leg but not a double
+                    // Try again with single leg preference
+                    const fallbackType = assignLegType(legRng, ring.x, ring.y, ring.radius);
+                    const fallbackString = (typeof fallbackType === 'object') ? fallbackType.type : fallbackType;
+                    const fallbackCount = getLegCount(fallbackString);
+
+                    if (fallbackCount === 1) {
+                        rings[ringIndex].legType = fallbackType;
+                        currentLegCount += 1;
+                        if (fallbackString !== 'none') legsAssigned++;
+                        markAttachmentPoints(ringIndex, fallbackType);
+                    }
+                }
+            }
+
+            // Ensure at least one leg exists (unless strategy is bridge-only)
+            if (currentLegCount === 0 && rings.length > 0 && strategy.bridgeCount.min === 0) {
+                rings[0].legType = 'single';
+                markAttachmentPoints(0, 'single');
+            }
+
+            // Now assign bridges based on strategy
+            if (rings.length >= 2) {
+                const bridgeConfig = strategy.bridgeCount;
+
+                // Determine number of bridges based on strategy weights
+                let numBridges = bridgeConfig.min;
+                const rand = legRng();
+                let cumulative = 0;
+                for (let i = 0; i < bridgeConfig.weights.length; i++) {
+                    cumulative += bridgeConfig.weights[i];
+                    if (rand < cumulative) {
+                        numBridges = bridgeConfig.min + i;
+                        break;
+                    }
+                }
+
+                console.log(`🌉 Attempting to create ${numBridges} bridge(s)`);
+
+                for (let b = 0; b < numBridges; b++) {
+                    const bridge = assignRandomBridge(legRng);
+                    if (bridge) {
+                        bridges.push(bridge);
+
+                        // IMPORTANT: Set both lenses to 'none' - the bridge IS their support
+                        // A lens cannot have both a bridge AND regular legs
+                        rings[bridge.lens1Index].legType = 'none';
+                        rings[bridge.lens2Index].legType = 'none';
+
+                        // Clear their occupied points from regular legs (they now only have bridge attachments)
+                        if (occupiedPoints[bridge.lens1Index]) {
+                            occupiedPoints[bridge.lens1Index].clear();
+                        }
+                        if (occupiedPoints[bridge.lens2Index]) {
+                            occupiedPoints[bridge.lens2Index].clear();
+                        }
+
+                        // Mark bridge attachment points as occupied
+                        occupiedPoints[bridge.lens1Index].add(bridge.lens1Position);
+                        occupiedPoints[bridge.lens2Index].add(bridge.lens2Position);
+
+                        currentLegCount += 2; // Each bridge counts as 2 legs
+                        if (currentLegCount >= MAX_LEG_COUNT) break;
+                    }
+                }
+            }
+
+            // CRITICAL: Ensure we always have at least SOME support structure
+            // Count how many lenses have legs OR are part of bridges
+            let supportedLenses = 0;
+            rings.forEach((ring, i) => {
+                if (ring.legType !== 'none') {
+                    supportedLenses++;
+                } else {
+                    // Check if this lens is part of a bridge
+                    const isInBridge = bridges.some(b => b.lens1Index === i || b.lens2Index === i);
+                    if (isInBridge) supportedLenses++;
+                }
+            });
+
+            // If we have fewer than 3 supported lenses, force add some legs
+            if (supportedLenses < 3 && rings.length > 0) {
+                console.log(`⚠️ Only ${supportedLenses} lenses have support - adding minimum legs`);
+
+                let addedLegs = 0;
+                const minSupport = Math.min(3, rings.length); // Ensure at least 3 (or all if fewer)
+
+                for (let i = 0; i < rings.length && supportedLenses < minSupport; i++) {
+                    if (rings[i].legType === 'none') {
+                        // Check if it's part of a bridge
+                        const isInBridge = bridges.some(b => b.lens1Index === i || b.lens2Index === i);
+                        if (!isInBridge) {
+                            // Add a single leg
+                            rings[i].legType = 'single';
+                            markAttachmentPoints(i, 'single');
+                            supportedLenses++;
+                            addedLegs++;
+                        }
+                    }
+                }
+
+                console.log(`✅ Added ${addedLegs} minimum support legs`);
+            }
+
+            draw();
+        }
+
+        // Mark attachment points as occupied based on leg type
+        function markAttachmentPoints(ringIndex, legType) {
+            // Handle object-based leg types (like floating legs and curved floating)
+            if (typeof legType === 'object') {
+                if (legType.type === 'floating_single') {
+                    occupiedPoints[ringIndex].add('C');
+                } else if (legType.type === 'floating_double' || legType.type === 'floating_double_asymmetric') {
+                    occupiedPoints[ringIndex].add('L');
+                    occupiedPoints[ringIndex].add('R');
+                } else if (legType.type === 'curved_lc_floating') {
+                    occupiedPoints[ringIndex].add('L');
+                    occupiedPoints[ringIndex].add('C');
+                } else if (legType.type === 'curved_cr_floating') {
+                    occupiedPoints[ringIndex].add('C');
+                    occupiedPoints[ringIndex].add('R');
+                } else if (legType.type === 'curved_lr_floating') {
+                    occupiedPoints[ringIndex].add('L');
+                    occupiedPoints[ringIndex].add('R');
+                }
+                return;
+            }
+
+            // Handle string-based leg types
+            switch(legType) {
+                case 'single':
+                case 'floating_single':
+                    occupiedPoints[ringIndex].add('C');
+                    break;
+                case 'double':
+                case 'floating_double':
+                    occupiedPoints[ringIndex].add('L');
+                    occupiedPoints[ringIndex].add('R');
+                    break;
+                case 'left_only':
+                    occupiedPoints[ringIndex].add('L');
+                    break;
+                case 'right_only':
+                    occupiedPoints[ringIndex].add('R');
+                    break;
+                case 'curved_lc':
+                    occupiedPoints[ringIndex].add('L');
+                    occupiedPoints[ringIndex].add('C');
+                    break;
+                case 'curved_cr':
+                    occupiedPoints[ringIndex].add('C');
+                    occupiedPoints[ringIndex].add('R');
+                    break;
+                case 'curved_lr':
+                    occupiedPoints[ringIndex].add('L');
+                    occupiedPoints[ringIndex].add('R');
+                    break;
+            }
+        }
+
+        // Assign a random bridge between two lenses
+        function assignRandomBridge(rng) {
+            if (rings.length < 2) return null;
+
+            // Try to find two lenses with available attachment points
+            const maxAttempts = 50;
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                // Pick two random distinct lenses
+                const lens1Index = Math.floor(rng() * rings.length);
+                let lens2Index = Math.floor(rng() * rings.length);
+
+                // Ensure different lenses
+                if (lens1Index === lens2Index) {
+                    lens2Index = (lens2Index + 1) % rings.length;
+                }
+
+                // Get available positions for each lens
+                const positions = ['L', 'C', 'R'];
+                const availablePos1 = positions.filter(p => !occupiedPoints[lens1Index].has(p));
+                const availablePos2 = positions.filter(p => !occupiedPoints[lens2Index].has(p));
+
+                if (availablePos1.length > 0 && availablePos2.length > 0) {
+                    // Pick random available positions
+                    const pos1 = availablePos1[Math.floor(rng() * availablePos1.length)];
+                    const pos2 = availablePos2[Math.floor(rng() * availablePos2.length)];
+
+                    // Mark as occupied
+                    occupiedPoints[lens1Index].add(pos1);
+                    occupiedPoints[lens2Index].add(pos2);
+
+                    return {
+                        lens1Index: lens1Index,
+                        lens1Position: pos1,
+                        lens2Index: lens2Index,
+                        lens2Position: pos2
+                    };
+                }
+            }
+
+            return null; // Couldn't find available positions
+        }
+
+        // Get the attachment point coordinates for a bridge
+        function getBridgeAttachmentPoint(lens, position, legOffset) {
+            switch(position) {
+                case 'L':
+                    // Left edge
+                    return {
+                        x: lens.x - (lens.radius - legOffset),
+                        y: lens.y
+                    };
+                case 'C':
+                    // Center bottom
+                    return {
+                        x: lens.x,
+                        y: lens.y + (lens.radius - legOffset)
+                    };
+                case 'R':
+                    // Right edge
+                    return {
+                        x: lens.x + (lens.radius - legOffset),
+                        y: lens.y
+                    };
+            }
+        }
+
+        // Cycle to next color palette
+        function cyclePalette() {
+            currentPaletteIndex = (currentPaletteIndex + 1) % PALETTE_ORDER.length;
+            const paletteKey = PALETTE_ORDER[currentPaletteIndex];
+            LENS_COLORS = COLOR_PALETTES[paletteKey].colors;
+
+            // Reassign colors to existing lenses
+            rings.forEach((ring, i) => {
+                ring.color = LENS_COLORS[i % LENS_COLORS.length];
+            });
+
+            console.log(`Switched to palette: ${COLOR_PALETTES[paletteKey].name}`);
+            updateInfo();
+            draw();
+        }
+
+        // Cycle to next leg strategy and regenerate legs
+        function cycleLegStrategy() {
+            if (rings.length === 0) return;
+
+            // Cycle to next leg strategy
+            currentLegStrategy = (currentLegStrategy + 1) % LEG_STRATEGIES.length;
+
+            console.log(`🦵 Switching to leg strategy: ${LEG_STRATEGIES[currentLegStrategy].name}`);
+
+            // Regenerate legs with new strategy
+            regenerateLegs();
+            updateInfo();
+            draw();
+        }
+
+        // Replace the last bridge with a new random one
+        function cycleBridge() {
+            if (rings.length < 2) {
+                console.log('Need at least 2 lenses for bridges');
+                return;
+            }
+
+            // Generate new bridge seed
+            const bridgeRng = seededRandom(Date.now());
+
+            // Remove the last bridge if one exists
+            if (bridges.length > 0) {
+                const oldBridge = bridges.pop();
+                console.log(`🌉 Removing bridge ${bridges.length + 1}`);
+
+                // Restore the lenses that were part of the old bridge
+                // (They might get assigned legs in the next step)
+            }
+
+            // Try to create a new bridge
+            const newBridge = assignRandomBridge(bridgeRng);
+            if (newBridge) {
+                bridges.push(newBridge);
+
+                // Set both lenses to 'none' - the bridge IS their support
+                rings[newBridge.lens1Index].legType = 'none';
+                rings[newBridge.lens2Index].legType = 'none';
+
+                // Clear and mark attachment points
+                if (occupiedPoints[newBridge.lens1Index]) {
+                    occupiedPoints[newBridge.lens1Index].clear();
+                }
+                if (occupiedPoints[newBridge.lens2Index]) {
+                    occupiedPoints[newBridge.lens2Index].clear();
+                }
+
+                occupiedPoints[newBridge.lens1Index].add(newBridge.lens1Position);
+                occupiedPoints[newBridge.lens2Index].add(newBridge.lens2Position);
+
+                console.log(`🌉 Created new bridge ${bridges.length}: lens ${newBridge.lens1Index + 1}[${newBridge.lens1Position}] → lens ${newBridge.lens2Index + 1}[${newBridge.lens2Position}]`);
+            } else {
+                console.log('Could not create a new bridge (no valid positions available)');
+            }
+
+            updateInfo();
+            draw();
+        }
+
+        // Add another bridge (up to 4 total)
+        function addBridge() {
+            if (rings.length < 2) {
+                console.log('Need at least 2 lenses for bridges');
+                return;
+            }
+
+            if (bridges.length >= 4) {
+                console.log('Maximum bridges reached (4)');
+                return;
+            }
+
+            // Generate new bridge seed
+            const bridgeRng = seededRandom(Date.now());
+
+            // Try to create a new bridge
+            const newBridge = assignRandomBridge(bridgeRng);
+            if (newBridge) {
+                bridges.push(newBridge);
+
+                // Set both lenses to 'none' - the bridge IS their support
+                rings[newBridge.lens1Index].legType = 'none';
+                rings[newBridge.lens2Index].legType = 'none';
+
+                // Clear and mark attachment points
+                if (occupiedPoints[newBridge.lens1Index]) {
+                    occupiedPoints[newBridge.lens1Index].clear();
+                }
+                if (occupiedPoints[newBridge.lens2Index]) {
+                    occupiedPoints[newBridge.lens2Index].clear();
+                }
+
+                occupiedPoints[newBridge.lens1Index].add(newBridge.lens1Position);
+                occupiedPoints[newBridge.lens2Index].add(newBridge.lens2Position);
+
+                console.log(`🌉 Added bridge ${bridges.length}: lens ${newBridge.lens1Index + 1}[${newBridge.lens1Position}] → lens ${newBridge.lens2Index + 1}[${newBridge.lens2Position}]`);
+            } else {
+                console.log('Could not add bridge (no valid positions available)');
+            }
+
+            updateInfo();
+            draw();
+        }
+
+        // Delete the last bridge
+        function deleteBridge() {
+            if (bridges.length === 0) {
+                console.log('No bridges to delete');
+                return;
+            }
+
+            // Remove the last bridge
+            const deletedBridge = bridges.pop();
+
+            console.log(`🗑️ Deleted bridge ${bridges.length + 1}: lens ${deletedBridge.lens1Index + 1}[${deletedBridge.lens1Position}] → lens ${deletedBridge.lens2Index + 1}[${deletedBridge.lens2Position}]`);
+
+            // Clear attachment points for the lenses that were part of this bridge
+            if (occupiedPoints[deletedBridge.lens1Index]) {
+                occupiedPoints[deletedBridge.lens1Index].delete(deletedBridge.lens1Position);
+            }
+            if (occupiedPoints[deletedBridge.lens2Index]) {
+                occupiedPoints[deletedBridge.lens2Index].delete(deletedBridge.lens2Position);
+            }
+
+            // NOTE: We don't automatically restore legs to these lenses
+            // The user can manually add legs with 'R' key if they want
+            // Or regenerate legs with 'M' to get new leg assignments
+
+            updateInfo();
+            draw();
+        }
+
+        function generate() {
+            currentSeed = Date.now();
+            lensSeed = Date.now();
+            legSeed = Date.now();
+            rng = seededRandom(currentSeed);
+            attempts = 0;
+
+            // 🌌 CONSTELLATION PATTERNS - 6 different anchor formations
+            const constellationType = Math.floor(rng() * 6);
+            anchors = [];
+
+            switch(constellationType) {
+                case 0: // Classic Triangle - CONSTRAINED to 250mm workspace
+                    const MAX_ANCHOR_POS = 120; // mm from center (125mm workspace/2 - 5mm anchor radius)
+                    const baseRadius = rng() * 50 + 60; // 60-110mm (scaled up for wall)
+                    const jitter = 0.3;
+                    const variation = 25;
+                    for (let i = 0; i < 3; i++) {
+                        const angle = (i / 3) * Math.PI * 2 + (rng() - 0.5) * jitter;
+                        const radius = Math.min(baseRadius + (rng() - 0.5) * variation, MAX_ANCHOR_POS);
+                        anchors.push({
+                            x: Math.cos(angle) * radius,
+                            y: Math.sin(angle) * radius,
+                            radius: ANCHOR_DIAMETER / 2
+                        });
+                    }
+                    console.log('🔺 Classic Triangle');
+                    break;
+
+                case 1: // Tight Cluster (close together)
+                    const clusterRadius = rng() * 25 + 25; // 25-50mm (scaled up for wall)
+                    for (let i = 0; i < 3; i++) {
+                        const angle = (i / 3) * Math.PI * 2 + (rng() - 0.5) * 0.5;
+                        anchors.push({
+                            x: Math.cos(angle) * clusterRadius,
+                            y: Math.sin(angle) * clusterRadius,
+                            radius: ANCHOR_DIAMETER / 2
+                        });
+                    }
+                    console.log('⭐ Tight Cluster');
+                    break;
+
+                case 2: // Wide Triangle (spread out) - CONSTRAINED to 250mm
+                    const wideRadius = rng() * 25 + 90; // 90-115mm (scaled up for wall)
+                    for (let i = 0; i < 3; i++) {
+                        const angle = (i / 3) * Math.PI * 2 + (rng() - 0.5) * 0.2;
+                        anchors.push({
+                            x: Math.cos(angle) * wideRadius,
+                            y: Math.sin(angle) * wideRadius,
+                            radius: ANCHOR_DIAMETER / 2
+                        });
+                    }
+                    console.log('🔼 Wide Triangle');
+                    break;
+
+                case 3: // Linear (nearly straight line) - CONSTRAINED
+                    const lineAngle = rng() * Math.PI * 2;
+                    const spacing = rng() * 15 + 25; // 25-40mm spacing (was 30-50, reduced)
+                    for (let i = 0; i < 3; i++) {
+                        const offset = (i - 1) * spacing;
+                        const perpJitter = (rng() - 0.5) * 10;
+                        let x = Math.cos(lineAngle) * offset + Math.cos(lineAngle + Math.PI/2) * perpJitter;
+                        let y = Math.sin(lineAngle) * offset + Math.sin(lineAngle + Math.PI/2) * perpJitter;
+                        // Clamp to workspace
+                        const MAX_POS = 71;
+                        x = Math.max(-MAX_POS, Math.min(MAX_POS, x));
+                        y = Math.max(-MAX_POS, Math.min(MAX_POS, y));
+                        anchors.push({
+                            x: x,
+                            y: y,
+                            radius: ANCHOR_DIAMETER / 2
+                        });
+                    }
+                    console.log('━ Linear Formation');
+                    break;
+
+                case 4: // Asymmetric (one far, two close) - CONSTRAINED
+                    const pairAngle = rng() * Math.PI * 2;
+                    const pairRadius = rng() * 15 + 35; // 35-50mm (was 40-55, reduced)
+                    const pairSeparation = 20; // Reduced from 25
+                    anchors.push({
+                        x: Math.cos(pairAngle) * pairRadius - Math.cos(pairAngle + Math.PI/2) * (pairSeparation/2),
+                        y: Math.sin(pairAngle) * pairRadius - Math.sin(pairAngle + Math.PI/2) * (pairSeparation/2),
+                        radius: ANCHOR_DIAMETER / 2
+                    });
+                    anchors.push({
+                        x: Math.cos(pairAngle) * pairRadius + Math.cos(pairAngle + Math.PI/2) * (pairSeparation/2),
+                        y: Math.sin(pairAngle) * pairRadius + Math.sin(pairAngle + Math.PI/2) * (pairSeparation/2),
+                        radius: ANCHOR_DIAMETER / 2
+                    });
+                    const soloAngle = pairAngle + Math.PI;
+                    const soloRadius = rng() * 15 + 55; // 55-70mm (was 60-80, reduced to fit)
+                    anchors.push({
+                        x: Math.cos(soloAngle) * soloRadius,
+                        y: Math.sin(soloAngle) * soloRadius,
+                        radius: ANCHOR_DIAMETER / 2
+                    });
+                    console.log('⚡ Asymmetric');
+                    break;
+
+                case 5: // Right Triangle (one 90° corner) - CONSTRAINED
+                    const MAX_RT_POS = 71;
+                    const cornerX = (rng() - 0.5) * 60; // ±30mm (was ±40, reduced)
+                    const cornerY = (rng() - 0.5) * 60; // ±30mm (was ±40, reduced)
+                    const leg1Length = rng() * 25 + 30; // 30-55mm (was 40-70, reduced)
+                    const leg2Length = rng() * 25 + 30; // 30-55mm (was 40-70, reduced)
+                    const rotation = rng() * Math.PI * 2;
+
+                    // Corner anchor
+                    anchors.push({
+                        x: cornerX,
+                        y: cornerY,
+                        radius: ANCHOR_DIAMETER / 2
+                    });
+
+                    // Leg 1 anchor - clamp to workspace
+                    let leg1X = cornerX + Math.cos(rotation) * leg1Length;
+                    let leg1Y = cornerY + Math.sin(rotation) * leg1Length;
+                    leg1X = Math.max(-MAX_RT_POS, Math.min(MAX_RT_POS, leg1X));
+                    leg1Y = Math.max(-MAX_RT_POS, Math.min(MAX_RT_POS, leg1Y));
+                    anchors.push({
+                        x: leg1X,
+                        y: leg1Y,
+                        radius: ANCHOR_DIAMETER / 2
+                    });
+
+                    // Leg 2 anchor - clamp to workspace
+                    let leg2X = cornerX + Math.cos(rotation + Math.PI/2) * leg2Length;
+                    let leg2Y = cornerY + Math.sin(rotation + Math.PI/2) * leg2Length;
+                    leg2X = Math.max(-MAX_RT_POS, Math.min(MAX_RT_POS, leg2X));
+                    leg2Y = Math.max(-MAX_RT_POS, Math.min(MAX_RT_POS, leg2Y));
+                    anchors.push({
+                        x: leg2X,
+                        y: leg2Y,
+                        radius: ANCHOR_DIAMETER / 2
+                    });
+                    console.log('📐 Right Triangle');
+                    break;
+            }
+
+            // Generate rings using current strategy
+            generateWithStrategy();
+        }
+
+        // Export functions
+        function exportJSON() {
+            // Create JSON structure compatible with Python pipeline
+            const jsonData = {
+                layers: [{
+                    frames: rings.map(ring => {
+                        return {
+                            radius: ring.radius,
+                            position: {
+                                x: ring.x,
+                                y: ring.y
+                            },
+                            color: ring.color,
+                            legType: ring.legType,
+                            adjacentRingIndex: ring.adjacentRingIndex !== undefined ? ring.adjacentRingIndex : -1
+                        };
+                    })
+                }],
+                bridges: bridges || [],
+                anchors: anchors.map(anchor => ({
+                    position: {
+                        x: anchor.x,
+                        y: anchor.y
+                    },
+                    radius: anchor.radius
+                })),
+                metadata: {
+                    seed: currentSeed,
+                    lensSeed: lensSeed,
+                    legSeed: legSeed,
+                    timestamp: new Date().toISOString()
+                }
+            };
+
+            // Create and download JSON file
+            const jsonString = JSON.stringify(jsonData, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `cycles-250mm_${currentSeed}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+
+            console.log('JSON exported:', jsonData);
+        }
+
+        function exportPNG() {
+            // Create a temporary canvas with white background
+            const exportCanvas = document.createElement('canvas');
+            exportCanvas.width = canvas.width;
+            exportCanvas.height = canvas.height;
+            const exportCtx = exportCanvas.getContext('2d');
+
+            // Fill with white background
+            exportCtx.fillStyle = '#ffffff';
+            exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+
+            // Draw the current canvas content on top
+            exportCtx.drawImage(canvas, 0, 0);
+
+            // Create thumbnail (cropped with 20px border)
+            createThumbnail(exportCanvas);
+
+            // Convert to PNG and download
+            exportCanvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `cycles-250mm_${currentSeed}.png`;
+                link.click();
+                URL.revokeObjectURL(url);
+            }, 'image/png');
+
+            console.log('PNG exported');
+        }
+
+        function createThumbnail(sourceCanvas) {
+            if (rings.length === 0) return;
+
+            // Capture the full 152mm × 152mm workspace (BOUNDARY × BOUNDARY)
+            const workspaceSize = BOUNDARY * SCALE; // 152mm × 3.5 = 532px
+
+            // Calculate workspace bounds centered on canvas
+            const minX = CENTER_X - (workspaceSize / 2);
+            const minY = CENTER_Y - (workspaceSize / 2);
+
+            // Create thumbnail canvas at full 200×200px for quality
+            const thumbCanvas = document.createElement('canvas');
+            thumbCanvas.width = 200;
+            thumbCanvas.height = 200;
+            const thumbCtx = thumbCanvas.getContext('2d');
+
+            // Draw workspace region scaled down to 200×200 (CSS will scale display size)
+            thumbCtx.drawImage(
+                sourceCanvas,
+                minX, minY, workspaceSize, workspaceSize,
+                0, 0, 200, 200
+            );
+
+            // Convert to data URL
+            const dataURL = thumbCanvas.toDataURL('image/png');
+
+            // Add to thumbnails array (max 4)
+            thumbnails.push({
+                dataURL: dataURL,
+                seed: currentSeed
+            });
+
+            // Keep only last 6
+            if (thumbnails.length > 6) {
+                thumbnails.shift();
+            }
+
+            // Update gallery display
+            updateThumbnailGallery();
+        }
+
+        function updateThumbnailGallery() {
+            const gallery = document.getElementById('thumbnail-gallery');
+            gallery.innerHTML = '';
+
+            thumbnails.forEach((thumb, index) => {
+                const item = document.createElement('div');
+                item.className = 'thumbnail-item';
+
+                const img = document.createElement('img');
+                img.className = 'thumbnail-image';
+                img.src = thumb.dataURL;
+
+                const label = document.createElement('div');
+                label.className = 'thumbnail-label';
+                label.textContent = `Seed: ${thumb.seed}`;
+
+                item.appendChild(img);
+                item.appendChild(label);
+                gallery.appendChild(item);
+            });
+        }
+
+        function exportLensSVG() {
+            if (rings.length === 0) {
+                console.log('No lenses to export');
+                return;
+            }
+
+            // Color hex to name mapping
+            const colorNames = {
+                '#F4E8A0': 'Yellow',
+                '#E8C5A0': 'Orange',
+                '#E8C4D5': 'Pink',
+                '#A0B0E8': 'Blue',
+                '#C4A0E8': 'Purple',
+                '#999999': 'Gray',
+                '#E89090': 'Red'
+            };
+
+            // 8" x 10" canvas in mm (203.2mm x 254mm)
+            const canvasWidth = 203.2;
+            const canvasHeight = 254;
+
+            // Calculate composition bounds to center it on canvas
+            let minX = Infinity, maxX = -Infinity;
+            let minY = Infinity, maxY = -Infinity;
+            rings.forEach(ring => {
+                minX = Math.min(minX, ring.x - ring.radius);
+                maxX = Math.max(maxX, ring.x + ring.radius);
+                minY = Math.min(minY, ring.y - ring.radius);
+                maxY = Math.max(maxY, ring.y + ring.radius);
+            });
+
+            const compositionWidth = maxX - minX;
+            const compositionHeight = maxY - minY;
+            const compositionCenterX = (minX + maxX) / 2;
+            const compositionCenterY = (minY + maxY) / 2;
+
+            // Center offset for SVG
+            const offsetX = canvasWidth / 2 - compositionCenterX;
+            const offsetY = canvasHeight / 2 - compositionCenterY;
+
+            // Start SVG
+            let svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="${canvasWidth}mm" height="${canvasHeight}mm" viewBox="0 0 ${canvasWidth} ${canvasHeight}" xmlns="http://www.w3.org/2000/svg">
+  <rect width="${canvasWidth}" height="${canvasHeight}" fill="white"/>
+
+`;
+
+            // Add each lens as a circle with label
+            rings.forEach((ring, index) => {
+                const cx = ring.x + offsetX;
+                const cy = ring.y + offsetY;
+                // Lens radius = frame radius - 1.2mm (diameter reduction of 2.4mm)
+                const lensRadius = ring.radius - 1.2;
+                const diameter = (lensRadius * 2).toFixed(2);
+                const colorName = colorNames[ring.color] || ring.color;
+
+                // Circle with color fill and black stroke
+                svg += `  <!-- Lens ${index + 1} -->\n`;
+                svg += `  <circle cx="${cx.toFixed(3)}" cy="${cy.toFixed(3)}" r="${lensRadius.toFixed(3)}" fill="${ring.color}" stroke="black" stroke-width="0.5"/>\n`;
+
+                // Text label - diameter and color
+                svg += `  <text x="${cx.toFixed(3)}" y="${cy.toFixed(3)}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="8" fill="black">\n`;
+                svg += `    ${diameter}mm / ${colorName}\n`;
+                svg += `  </text>\n\n`;
+            });
+
+            // Close SVG
+            svg += `</svg>`;
+
+            // Download SVG file
+            const blob = new Blob([svg], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `lens-template-250mm_${currentSeed}.svg`;
+            link.click();
+            URL.revokeObjectURL(url);
+
+            console.log(`Lens SVG exported: ${rings.length} lenses`);
+        }
+
+        function exportAllFiles() {
+            if (rings.length === 0) {
+                console.log('No composition to export');
+                return;
+            }
+
+            console.log('Exporting all files...');
+
+            // Export PNG (also creates thumbnail)
+            exportPNG();
+
+            // Export JSON
+            exportJSON();
+
+            // Export SVG
+            exportLensSVG();
+
+            // Export SCAD
+            exportSCAD();
+
+            // Export OpenSCAD automation script
+            exportOpenSCADScript();
+
+            console.log('All files exported! Run the render.sh script to generate STL files.');
+        }
+
+        function exportSCAD() {
+            if (rings.length === 0) {
+                console.log('No composition to export as SCAD');
+                return;
+            }
+
+            // Generate OpenSCAD script
+            const frames = rings.map(ring => ({
+                radius: ring.radius,
+                position: { x: ring.x, y: ring.y },
+                legType: ring.legType,
+                adjacentRingIndex: ring.adjacentRingIndex !== undefined ? ring.adjacentRingIndex : -1
+            }));
+
+            const anchorsData = anchors.map(anchor => ({
+                position: { x: anchor.x, y: anchor.y },
+                radius: anchor.radius
+            }));
+
+            let scad = `// Cycles 2.2 - 250mm Wall Sculpture - OpenSCAD Export
+// Generated: ${new Date().toISOString()}
+// Source: seed_${currentSeed}
+
+// ========================================
+// EXPORT OPTIONS - Toggle what to generate
+// ========================================
+
+EXPORT_STRUCTURE = true;   // Frame structure with legs/bridges/anchors
+EXPORT_WASHERS = false;    // Lens washers (set to true, structure to false)
+FRONT_FACE = false;        // Set to true for seamless front-facing layer (caps anchor holes)
+
+// ========================================
+// PHYSICAL CONSTANTS (all units in mm)
+// ========================================
+
+frame_height = 3.175;      // Thickness of lens frames
+frame_width = 1.2;         // Wall thickness
+channel_depth = 1.5875;    // Depth of lens channel
+anchor_diameter = 6.36;    // Anchor outer diameter
+anchor_hole_size = 2.8;    // Square hole in anchor
+leg_width = 1.2;           // Leg thickness
+ground_y = 76;             // Ground plane Y coordinate
+overlap = 0.1;             // Small overlap for CSG union operations
+
+// Rendering quality ($fn = segments for curves)
+$fn = 80;
+
+// ========================================
+// MAIN COMPOSITION
+// ========================================
+
+if (EXPORT_STRUCTURE) {
+    difference() {
+        all_solids();
+        all_voids();
+    }
+}
+
+if (EXPORT_WASHERS) {
+    washers();
+}
+
+// ========================================
+// ALL SOLID PARTS
+// ========================================
+
+module all_solids() {
+    union() {
+        // Lens frame outer cylinders
+        lens_frames_outer();
+
+        // Legs
+        legs();
+
+        // Bridges
+        bridges();
+
+        // Anchor outer cylinders
+        anchors_outer();
+    }
+}
+
+// ========================================
+// ALL VOID PARTS (CUTOUTS)
+// ========================================
+
+module all_voids() {
+    union() {
+        // Lens channels
+        lens_channels();
+
+        // Lens inner holes
+        lens_holes();
+
+        // Anchor square holes
+        anchor_holes();
+    }
+}
+
+// ========================================
+// LENS FRAMES (OUTER CYLINDERS)
+// ========================================
+
+module lens_frames_outer() {
+`;
+
+            // Generate lens frame outer cylinders
+            frames.forEach((frame, index) => {
+                const x = frame.position.x;
+                const y = frame.position.y;
+                const r = frame.radius + 0.1; // Add overlap for CSG union
+                scad += `    // Lens ${index + 1}: r=${frame.radius.toFixed(2)}mm at (${x.toFixed(2)}, ${y.toFixed(2)})\n`;
+                scad += `    translate([${x.toFixed(3)}, ${y.toFixed(3)}, 0])\n`;
+                scad += `        cylinder(r=${r.toFixed(3)}, h=frame_height);\n\n`;
+            });
+
+            scad += `}
+
+// ========================================
+// LENS CHANNELS (VOIDS)
+// ========================================
+
+module lens_channels() {
+`;
+
+            // Generate lens channels
+            frames.forEach((frame, index) => {
+                const x = frame.position.x;
+                const y = frame.position.y;
+                const channelRadius = frame.radius - 1.2;
+                scad += `    // Lens ${index + 1} channel\n`;
+                scad += `    translate([${x.toFixed(3)}, ${y.toFixed(3)}, channel_depth])\n`;
+                scad += `        cylinder(r=${channelRadius.toFixed(3)}, h=frame_height);\n\n`;
+            });
+
+            scad += `}
+
+// ========================================
+// LENS INNER HOLES (VOIDS)
+// ========================================
+
+module lens_holes() {
+`;
+
+            // Generate lens inner holes
+            frames.forEach((frame, index) => {
+                const x = frame.position.x;
+                const y = frame.position.y;
+                const innerRadius = frame.radius - 2.4;
+                scad += `    // Lens ${index + 1} inner hole\n`;
+                scad += `    translate([${x.toFixed(3)}, ${y.toFixed(3)}, -0.5])\n`;
+                scad += `        cylinder(r=${innerRadius.toFixed(3)}, h=frame_height + 1);\n\n`;
+            });
+
+            scad += `}
+
+// ========================================
+// LEGS
+// ========================================
+
+module legs() {
+`;
+
+            // Generate legs (copying logic from scadx.html)
+            frames.forEach((frame, index) => {
+                const legType = frame.legType;
+                if (legType === 'none') return;
+
+                const x = frame.position.x;
+                const y = frame.position.y;
+                const r = frame.radius;
+                const legOffset = 0.6;
+
+                scad += `    // Leg for lens ${index + 1}: type=${legType}\n`;
+
+                switch (legType) {
+                    case 'single':
+                        const singleLegHeight = 125 - (y - r) + 0.1;
+                        if (singleLegHeight > 0) {
+                            const legStartY = y - r;
+                            scad += `    translate([${(x - 0.6).toFixed(3)}, ${legStartY.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${singleLegHeight.toFixed(3)}, frame_height]);\n\n`;
+                        }
+                        break;
+
+                    case 'double':
+                        const leftX = x - (r - legOffset);
+                        const rightX = x + (r - legOffset);
+                        const doubleLegHeight = 125 - y + 0.1;
+                        if (doubleLegHeight > 0) {
+                            scad += `    translate([${(leftX - 0.6).toFixed(3)}, ${y.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${doubleLegHeight.toFixed(3)}, frame_height]);\n`;
+                            scad += `    translate([${(rightX - 0.6).toFixed(3)}, ${y.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${doubleLegHeight.toFixed(3)}, frame_height]);\n\n`;
+                        }
+                        break;
+
+                    case 'left_only':
+                        const leftOnlyX = x - (r - legOffset);
+                        const leftOnlyHeight = 125 - y + 0.1;
+                        if (leftOnlyHeight > 0) {
+                            scad += `    translate([${(leftOnlyX - 0.6).toFixed(3)}, ${y.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${leftOnlyHeight.toFixed(3)}, frame_height]);\n\n`;
+                        }
+                        break;
+
+                    case 'right_only':
+                        const rightOnlyX = x + (r - legOffset);
+                        const rightOnlyHeight = 125 - y + 0.1;
+                        if (rightOnlyHeight > 0) {
+                            scad += `    translate([${(rightOnlyX - 0.6).toFixed(3)}, ${y.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${rightOnlyHeight.toFixed(3)}, frame_height]);\n\n`;
+                        }
+                        break;
+
+                    case 'curved_lc':
+                        const leftEdgeX_lc = x - (r - legOffset);
+                        const leftEdgeY_lc = y;
+                        const centerBottomX_lc = x;
+                        const centerBottomY_lc = y + (r - legOffset);
+
+                        const arcRadius_lc = (centerBottomX_lc - leftEdgeX_lc) / 2;
+                        const arcCenterX_lc = leftEdgeX_lc + arcRadius_lc;
+                        const arcCenterY_lc = 125 - arcRadius_lc;
+
+                        if (arcCenterY_lc > y + r) {
+                            const leftLegHeight_lc = arcCenterY_lc - leftEdgeY_lc + 0.1;
+                            scad += `    // curved_lc: Left vertical\n`;
+                            scad += `    translate([${(leftEdgeX_lc - 0.6).toFixed(3)}, ${leftEdgeY_lc.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${leftLegHeight_lc.toFixed(3)}, frame_height]);\n\n`;
+
+                            const centerLegHeight_lc = arcCenterY_lc - centerBottomY_lc + 0.1;
+                            scad += `    // curved_lc: Center vertical\n`;
+                            scad += `    translate([${(centerBottomX_lc - 0.6).toFixed(3)}, ${centerBottomY_lc.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${centerLegHeight_lc.toFixed(3)}, frame_height]);\n\n`;
+
+                            scad += `    // curved_lc: U-shaped arc\n`;
+                            scad += `    translate([${arcCenterX_lc.toFixed(3)}, ${arcCenterY_lc.toFixed(3)}, 0])\n`;
+                            scad += `        rotate([0, 0, 0])\n`;
+                            scad += `        rotate_extrude(angle=180)\n`;
+                            scad += `        translate([${(arcRadius_lc - 0.6).toFixed(3)}, 0, 0])\n`;
+                            scad += `        square([leg_width, frame_height], center=false);\n\n`;
+                        }
+                        break;
+
+                    case 'curved_cr':
+                        const centerBottomX_cr = x;
+                        const centerBottomY_cr = y + (r - legOffset);
+                        const rightEdgeX_cr = x + (r - legOffset);
+                        const rightEdgeY_cr = y;
+
+                        const arcRadius_cr = (rightEdgeX_cr - centerBottomX_cr) / 2;
+                        const arcCenterX_cr = centerBottomX_cr + arcRadius_cr;
+                        const arcCenterY_cr = 125 - arcRadius_cr;
+
+                        if (arcCenterY_cr > y + r) {
+                            const centerLegHeight_cr = arcCenterY_cr - centerBottomY_cr + 0.1;
+                            scad += `    // curved_cr: Center vertical\n`;
+                            scad += `    translate([${(centerBottomX_cr - 0.6).toFixed(3)}, ${centerBottomY_cr.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${centerLegHeight_cr.toFixed(3)}, frame_height]);\n\n`;
+
+                            const rightLegHeight_cr = arcCenterY_cr - rightEdgeY_cr + 0.1;
+                            scad += `    // curved_cr: Right vertical\n`;
+                            scad += `    translate([${(rightEdgeX_cr - 0.6).toFixed(3)}, ${rightEdgeY_cr.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${rightLegHeight_cr.toFixed(3)}, frame_height]);\n\n`;
+
+                            scad += `    // curved_cr: U-shaped arc\n`;
+                            scad += `    translate([${arcCenterX_cr.toFixed(3)}, ${arcCenterY_cr.toFixed(3)}, 0])\n`;
+                            scad += `        rotate([0, 0, 0])\n`;
+                            scad += `        rotate_extrude(angle=180)\n`;
+                            scad += `        translate([${(arcRadius_cr - 0.6).toFixed(3)}, 0, 0])\n`;
+                            scad += `        square([leg_width, frame_height], center=false);\n\n`;
+                        }
+                        break;
+
+                    case 'curved_lr':
+                        const leftEdgeX_lr = x - (r - legOffset);
+                        const leftEdgeY_lr = y;
+                        const rightEdgeX_lr = x + (r - legOffset);
+                        const rightEdgeY_lr = y;
+
+                        const arcRadius_lr = (rightEdgeX_lr - leftEdgeX_lr) / 2;
+                        const arcCenterX_lr = x;
+                        const arcCenterY_lr = 125 - arcRadius_lr;
+
+                        if (arcCenterY_lr > y + r) {
+                            const leftLegHeight_lr = arcCenterY_lr - leftEdgeY_lr + 0.1;
+                            scad += `    // curved_lr: Left vertical\n`;
+                            scad += `    translate([${(leftEdgeX_lr - 0.6).toFixed(3)}, ${leftEdgeY_lr.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${leftLegHeight_lr.toFixed(3)}, frame_height]);\n\n`;
+
+                            const rightLegHeight_lr = arcCenterY_lr - rightEdgeY_lr + 0.1;
+                            scad += `    // curved_lr: Right vertical\n`;
+                            scad += `    translate([${(rightEdgeX_lr - 0.6).toFixed(3)}, ${rightEdgeY_lr.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${rightLegHeight_lr.toFixed(3)}, frame_height]);\n\n`;
+
+                            scad += `    // curved_lr: Wide U-shaped arc\n`;
+                            scad += `    translate([${arcCenterX_lr.toFixed(3)}, ${arcCenterY_lr.toFixed(3)}, 0])\n`;
+                            scad += `        rotate([0, 0, 0])\n`;
+                            scad += `        rotate_extrude(angle=180)\n`;
+                            scad += `        translate([${(arcRadius_lr - 0.6).toFixed(3)}, 0, 0])\n`;
+                            scad += `        square([leg_width, frame_height], center=false);\n\n`;
+                        }
+                        break;
+
+                    case 'curved_adjacent':
+                        if (frame.adjacentRingIndex !== -1 && frame.adjacentRingIndex < frames.length) {
+                            const adjacent = frames[frame.adjacentRingIndex];
+                            const dx = adjacent.position.x - x;
+                            const dy = adjacent.position.y - y;
+                            const dist = Math.sqrt(dx * dx + dy * dy);
+
+                            const tangentX = x + (dx / dist) * r;
+                            const tangentY = y + (dy / dist) * r;
+
+                            const legSpacing = 3;
+                            const leg1X = tangentX - legSpacing / 2;
+                            const leg2X = tangentX + legSpacing / 2;
+
+                            const bridgeArcRadius = legSpacing / 2;
+                            const bridgeArcCenterY = 125 - bridgeArcRadius; // WALL VERSION: 125mm ground plane
+
+                            const ring1Bottom = y + r;
+                            const ring2Bottom = adjacent.position.y + adjacent.radius;
+
+                            if (bridgeArcCenterY > ring1Bottom && bridgeArcCenterY > ring2Bottom) {
+                                const leg1Height = bridgeArcCenterY - tangentY + 0.1;
+                                scad += `    // curved_adjacent: Left vertical\n`;
+                                scad += `    translate([${(leg1X - 0.6).toFixed(3)}, ${tangentY.toFixed(3)}, 0])\n`;
+                                scad += `        cube([leg_width, ${leg1Height.toFixed(3)}, frame_height]);\n\n`;
+
+                                const leg2Height = bridgeArcCenterY - tangentY + 0.1;
+                                scad += `    // curved_adjacent: Right vertical\n`;
+                                scad += `    translate([${(leg2X - 0.6).toFixed(3)}, ${tangentY.toFixed(3)}, 0])\n`;
+                                scad += `        cube([leg_width, ${leg2Height.toFixed(3)}, frame_height]);\n\n`;
+
+                                scad += `    // curved_adjacent: Bridge arc\n`;
+                                scad += `    translate([${tangentX.toFixed(3)}, ${bridgeArcCenterY.toFixed(3)}, 0])\n`;
+                                scad += `        rotate([0, 0, 0])\n`;
+                                scad += `        rotate_extrude(angle=180)\n`;
+                                scad += `        translate([${(bridgeArcRadius - 0.6).toFixed(3)}, 0, 0])\n`;
+                                scad += `        square([leg_width, frame_height], center=false);\n\n`;
+                            }
+                        } else {
+                            const fallbackLegHeight = 125 - (y - r) + 0.1;
+                            if (fallbackLegHeight > 0) {
+                                const legStartY = y - r;
+                            // No adjacent ring found - skip leg generation
+                            // (This lens likely has a bridge or should have legType='none')
+                            scad += `    // curved_adjacent: No adjacent ring found, skipping leg\n\n`;
+                        }
+                        break;                        }
+                        break;
+
+                    // No case needed - handled in default
+
+                    default:
+                        // Handle object-based leg types
+                        if (typeof legType === 'object') {
+                            if (legType.type === 'floating_single') {
+                                // Single leg that stops mid-air
+                                const floatHeight = legType.floatHeight;
+                                const floatStopY = 125 - floatHeight;
+                                const legStartY = y - r;
+                                const floatLegHeight = floatStopY - legStartY;
+
+                                if (floatLegHeight > 0 && floatStopY > y + r) {
+                                    scad += `    // floating_single: Leg stops at ${floatHeight.toFixed(1)}mm above ground\n`;
+                                    scad += `    translate([${(x - 0.6).toFixed(3)}, ${legStartY.toFixed(3)}, 0])\n`;
+                                    scad += `        cube([leg_width, ${floatLegHeight.toFixed(3)}, frame_height]);\n\n`;
+                                }
+                            } else if (legType.type === 'floating_double') {
+                                // Two legs that stop mid-air (symmetric - legacy)
+                                const floatHeight = legType.floatHeight;
+                                const floatStopY = 125 - floatHeight;
+                                const floatLegHeight = floatStopY - y;
+
+                                if (floatLegHeight > 0 && floatStopY > y + r) {
+                                    const leftFloatX = x - (r - legOffset);
+                                    const rightFloatX = x + (r - legOffset);
+
+                                    scad += `    // floating_double: Legs stop at ${floatHeight.toFixed(1)}mm above ground\n`;
+                                    scad += `    translate([${(leftFloatX - 0.6).toFixed(3)}, ${y.toFixed(3)}, 0])\n`;
+                                    scad += `        cube([leg_width, ${floatLegHeight.toFixed(3)}, frame_height]);\n`;
+                                    scad += `    translate([${(rightFloatX - 0.6).toFixed(3)}, ${y.toFixed(3)}, 0])\n`;
+                                    scad += `        cube([leg_width, ${floatLegHeight.toFixed(3)}, frame_height]);\n\n`;
+                                }
+                            } else if (legType.type === 'floating_double_asymmetric') {
+                                // ASYMMETRIC: Each leg stops at DIFFERENT height!
+                                const floatHeight1 = legType.floatHeight1;
+                                const floatHeight2 = legType.floatHeight2;
+                                const floatStopY1 = 125 - floatHeight1;
+                                const floatStopY2 = 125 - floatHeight2;
+                                const floatLegHeight1 = floatStopY1 - y;
+                                const floatLegHeight2 = floatStopY2 - y;
+                                const leftFloatX = x - (r - legOffset);
+                                const rightFloatX = x + (r - legOffset);
+
+                                scad += `    // floating_double_asymmetric: Left=${floatHeight1.toFixed(1)}mm, Right=${floatHeight2.toFixed(1)}mm above ground\n`;
+                                if (floatLegHeight1 > 0 && floatStopY1 > y + r) {
+                                    scad += `    translate([${(leftFloatX - 0.6).toFixed(3)}, ${y.toFixed(3)}, 0])\n`;
+                                    scad += `        cube([leg_width, ${floatLegHeight1.toFixed(3)}, frame_height]);\n`;
+                                }
+                                if (floatLegHeight2 > 0 && floatStopY2 > y + r) {
+                                    scad += `    translate([${(rightFloatX - 0.6).toFixed(3)}, ${y.toFixed(3)}, 0])\n`;
+                                    scad += `        cube([leg_width, ${floatLegHeight2.toFixed(3)}, frame_height]);\n\n`;
+                                }
+                            } else if (legType.type === 'curved_lc_floating') {
+                                // Curved left-center with randomized depth
+                                const arcDepth = legType.arcDepth;
+                                const leftEdgeX = x - (r - legOffset);
+                                const centerBottomY = y + (r - legOffset);
+                                const arcRadius = (x - leftEdgeX) / 2;
+                                const arcCenterX = leftEdgeX + arcRadius;
+                                const arcCenterY = 125 - arcDepth;
+
+                                if (arcCenterY > y + r) {
+                                    const leftLegHeight = arcCenterY - y + 0.1;
+                                    scad += `    // curved_lc_floating: Arc depth ${arcDepth.toFixed(1)}mm\n`;
+                                    scad += `    translate([${(leftEdgeX - 0.6).toFixed(3)}, ${y.toFixed(3)}, 0])\n`;
+                                    scad += `        cube([leg_width, ${leftLegHeight.toFixed(3)}, frame_height]);\n`;
+
+                                    const centerLegHeight = arcCenterY - centerBottomY + 0.1;
+                                    scad += `    translate([${(x - 0.6).toFixed(3)}, ${centerBottomY.toFixed(3)}, 0])\n`;
+                                    scad += `        cube([leg_width, ${centerLegHeight.toFixed(3)}, frame_height]);\n`;
+
+                                    scad += `    translate([${arcCenterX.toFixed(3)}, ${arcCenterY.toFixed(3)}, 0])\n`;
+                                    scad += `        rotate_extrude(angle=180)\n`;
+                                    scad += `        translate([${(arcRadius - 0.6).toFixed(3)}, 0, 0])\n`;
+                                    scad += `        square([leg_width, frame_height], center=false);\n\n`;
+                                }
+                            } else if (legType.type === 'curved_cr_floating') {
+                                // Curved center-right with randomized depth
+                                const arcDepth = legType.arcDepth;
+                                const centerBottomY = y + (r - legOffset);
+                                const rightEdgeX = x + (r - legOffset);
+                                const arcRadius = (rightEdgeX - x) / 2;
+                                const arcCenterX = x + arcRadius;
+                                const arcCenterY = 125 - arcDepth;
+
+                                if (arcCenterY > y + r) {
+                                    const centerLegHeight = arcCenterY - centerBottomY + 0.1;
+                                    scad += `    // curved_cr_floating: Arc depth ${arcDepth.toFixed(1)}mm\n`;
+                                    scad += `    translate([${(x - 0.6).toFixed(3)}, ${centerBottomY.toFixed(3)}, 0])\n`;
+                                    scad += `        cube([leg_width, ${centerLegHeight.toFixed(3)}, frame_height]);\n`;
+
+                                    const rightLegHeight = arcCenterY - y + 0.1;
+                                    scad += `    translate([${(rightEdgeX - 0.6).toFixed(3)}, ${y.toFixed(3)}, 0])\n`;
+                                    scad += `        cube([leg_width, ${rightLegHeight.toFixed(3)}, frame_height]);\n`;
+
+                                    scad += `    translate([${arcCenterX.toFixed(3)}, ${arcCenterY.toFixed(3)}, 0])\n`;
+                                    scad += `        rotate_extrude(angle=180)\n`;
+                                    scad += `        translate([${(arcRadius - 0.6).toFixed(3)}, 0, 0])\n`;
+                                    scad += `        square([leg_width, frame_height], center=false);\n\n`;
+                                }
+                            } else if (legType.type === 'curved_lr_floating') {
+                                // Curved left-right with randomized depth
+                                const arcDepth = legType.arcDepth;
+                                const leftEdgeX = x - (r - legOffset);
+                                const rightEdgeX = x + (r - legOffset);
+                                const arcRadius = (rightEdgeX - leftEdgeX) / 2;
+                                const arcCenterX = x;
+                                const arcCenterY = 125 - arcDepth;
+
+                                if (arcCenterY > y + r) {
+                                    const legHeight = arcCenterY - y + 0.1;
+                                    scad += `    // curved_lr_floating: Arc depth ${arcDepth.toFixed(1)}mm\n`;
+                                    scad += `    translate([${(leftEdgeX - 0.6).toFixed(3)}, ${y.toFixed(3)}, 0])\n`;
+                                    scad += `        cube([leg_width, ${legHeight.toFixed(3)}, frame_height]);\n`;
+                                    scad += `    translate([${(rightEdgeX - 0.6).toFixed(3)}, ${y.toFixed(3)}, 0])\n`;
+                                    scad += `        cube([leg_width, ${legHeight.toFixed(3)}, frame_height]);\n`;
+
+                                    scad += `    translate([${arcCenterX.toFixed(3)}, ${arcCenterY.toFixed(3)}, 0])\n`;
+                                    scad += `        rotate_extrude(angle=180)\n`;
+                                    scad += `        translate([${(arcRadius - 0.6).toFixed(3)}, 0, 0])\n`;
+                                    scad += `        square([leg_width, frame_height], center=false);\n\n`;
+                                }
+                            }
+                        }
+                        break;
+                }
+            });
+
+            scad += `}
+
+// ========================================
+// BRIDGES (Random lens-to-lens connections)
+// ========================================
+
+module bridges() {
+`;
+
+            // Generate bridges if they exist
+            if (bridges && bridges.length > 0) {
+                bridges.forEach((bridge, bridgeIndex) => {
+                    const lens1 = frames[bridge.lens1Index];
+                    const lens2 = frames[bridge.lens2Index];
+
+                    if (!lens1 || !lens2) return;
+
+                    scad += `    // Bridge ${bridgeIndex + 1}: lens ${bridge.lens1Index + 1}[${bridge.lens1Position}] to lens ${bridge.lens2Index + 1}[${bridge.lens2Position}]\n`;
+
+                    const legOffset = 0.6;
+                    const point1 = getBridgeAttachmentPointForSCAD(lens1, bridge.lens1Position, legOffset);
+                    const point2 = getBridgeAttachmentPointForSCAD(lens2, bridge.lens2Position, legOffset);
+
+                    const x1 = point1.x;
+                    const y1 = point1.y;
+                    const x2 = point2.x;
+                    const y2 = point2.y;
+
+                    const arcRadius = Math.abs(x2 - x1) / 2;
+                    const arcCenterX = (x1 + x2) / 2;
+                    const arcCenterY = 125 - arcRadius; // WALL VERSION: 125mm ground plane
+
+                    const lens1Bottom = lens1.position.y + lens1.radius;
+                    const lens2Bottom = lens2.position.y + lens2.radius;
+
+                    if (arcCenterY > lens1Bottom && arcCenterY > lens2Bottom && arcRadius > 0) {
+                        const leg1Height = arcCenterY - y1 + 0.1;
+                        if (leg1Height > 0) {
+                            scad += `    translate([${(x1 - 0.6).toFixed(3)}, ${y1.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${leg1Height.toFixed(3)}, frame_height]);\n\n`;
+                        }
+
+                        const leg2Height = arcCenterY - y2 + 0.1;
+                        if (leg2Height > 0) {
+                            scad += `    translate([${(x2 - 0.6).toFixed(3)}, ${y2.toFixed(3)}, 0])\n`;
+                            scad += `        cube([leg_width, ${leg2Height.toFixed(3)}, frame_height]);\n\n`;
+                        }
+
+                        scad += `    translate([${arcCenterX.toFixed(3)}, ${arcCenterY.toFixed(3)}, 0])\n`;
+                        scad += `        rotate([0, 0, 0])\n`;
+                        scad += `        rotate_extrude(angle=180)\n`;
+                        scad += `        translate([${(arcRadius - 0.6).toFixed(3)}, 0, 0])\n`;
+                        scad += `        square([leg_width, frame_height], center=false);\n\n`;
+                    }
+                });
+            }
+
+            scad += `}
+
+// ========================================
+// ANCHORS
+// ========================================
+
+module anchors_outer() {
+`;
+
+            // Generate anchor outer cylinders
+            anchorsData.forEach((anchor, index) => {
+                const x = anchor.position.x;
+                const y = anchor.position.y;
+                scad += `    // Anchor ${index + 1}\n`;
+                scad += `    translate([${x.toFixed(3)}, ${y.toFixed(3)}, 0])\n`;
+                scad += `        cylinder(r=anchor_diameter/2 + overlap, h=frame_height);\n\n`;
+            });
+
+            scad += `}
+
+module anchor_holes() {
+`;
+
+            // Generate anchor square holes
+            anchorsData.forEach((anchor, index) => {
+                const x = anchor.position.x;
+                const y = anchor.position.y;
+                scad += `    // Anchor hole ${index + 1}\n`;
+                scad += `    if (FRONT_FACE) {\n`;
+                scad += `        // Cap the bottom 0.4mm for seamless front face\n`;
+                scad += `        translate([${(x - 1.4).toFixed(3)}, ${(y - 1.4).toFixed(3)}, 0.4])\n`;
+                scad += `            cube([anchor_hole_size, anchor_hole_size, frame_height + 2]);\n`;
+                scad += `    } else {\n`;
+                scad += `        // Full through-hole for back/middle layers\n`;
+                scad += `        translate([${(x - 1.4).toFixed(3)}, ${(y - 1.4).toFixed(3)}, -0.5])\n`;
+                scad += `            cube([anchor_hole_size, anchor_hole_size, frame_height + 2]);\n`;
+                scad += `    }\n\n`;
+            });
+
+            scad += `}
+
+// ========================================
+// LENS WASHERS (for holding lenses in place)
+// ========================================
+
+module washers() {
+`;
+
+            // Generate washers for each lens
+            frames.forEach((frame, index) => {
+                const x = frame.position.x;
+                const y = frame.position.y;
+                const outerRadius = frame.radius - 1.2;
+                const innerRadius = outerRadius - 1.2;
+                const washerHeight = 1.5875;
+
+                scad += `    // Washer for lens ${index + 1}\n`;
+                scad += `    translate([${x.toFixed(3)}, ${y.toFixed(3)}, 0])\n`;
+                scad += `        difference() {\n`;
+                scad += `            cylinder(r=${outerRadius.toFixed(3)}, h=${washerHeight.toFixed(4)});\n`;
+                scad += `            translate([0, 0, -0.5])\n`;
+                scad += `                cylinder(r=${innerRadius.toFixed(3)}, h=${(washerHeight + 1).toFixed(4)});\n`;
+                scad += `        }\n\n`;
+            });
+
+            scad += `}
+
+// ========================================
+// END OF SCRIPT
+// ========================================
+`;
+
+            // Download SCAD file
+            const blob = new Blob([scad], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `cycles-250mm_${currentSeed}.scad`;
+            link.click();
+            URL.revokeObjectURL(url);
+
+            console.log('OpenSCAD script exported');
+        }
+
+        function exportOpenSCADScript() {
+            if (rings.length === 0) {
+                console.log('No composition for OpenSCAD automation');
+                return;
+            }
+
+            // Get folder name from input field
+            const folderName = document.getElementById('folderName').value.trim() || 'composition-001';
+
+            const scadFilename = `cycles-250mm_${currentSeed}.scad`;
+            const pngFilename = `cycles-250mm_${currentSeed}.png`;
+            const jsonFilename = `cycles-250mm_${currentSeed}.json`;
+            const svgFilename = `lens-template-250mm_${currentSeed}.svg`;
+            const frameFilename = `structure.stl`;
+            const ringsFilename = `washers.stl`;
+
+            // Create bash script that will organize files and run OpenSCAD CLI
+            const script = `#!/bin/bash
+# Cycles 2.2 - Auto-Render & Organize Script
+# Generated: ${new Date().toISOString()}
+# Seed: ${currentSeed}
+# Folder: ${folderName}
+
+FOLDER_NAME="${folderName}"
+BASE_DIR="$HOME/Downloads/cycles-renders"
+TARGET_DIR="$BASE_DIR/$FOLDER_NAME"
+
+echo "🎨 Cycles 2.2 - Auto-Render & Organize"
+echo "================================"
+echo ""
+
+# Create target directory structure
+echo "📁 Creating folder structure..."
+mkdir -p "$TARGET_DIR"
+
+if [ ! -d "$TARGET_DIR" ]; then
+    echo "❌ Error: Could not create directory $TARGET_DIR"
+    exit 1
+fi
+
+echo "✅ Created: $TARGET_DIR"
+echo ""
+
+# Move all exported files to target directory
+echo "📦 Moving exported files..."
+cd ~/Downloads
+
+if [ -f "${scadFilename}" ]; then
+    mv "${scadFilename}" "$TARGET_DIR/"
+    echo "  ✓ Moved ${scadFilename}"
+fi
+
+if [ -f "${pngFilename}" ]; then
+    mv "${pngFilename}" "$TARGET_DIR/"
+    echo "  ✓ Moved ${pngFilename}"
+fi
+
+if [ -f "${jsonFilename}" ]; then
+    mv "${jsonFilename}" "$TARGET_DIR/"
+    echo "  ✓ Moved ${jsonFilename}"
+fi
+
+if [ -f "${svgFilename}" ]; then
+    mv "${svgFilename}" "$TARGET_DIR/"
+    echo "  ✓ Moved ${svgFilename}"
+fi
+
+echo ""
+echo "📐 Starting OpenSCAD rendering..."
+cd "$TARGET_DIR"
+
+# Find OpenSCAD (check multiple possible locations)
+OPENSCAD_BIN=""
+
+if command -v openscad &> /dev/null; then
+    OPENSCAD_BIN="openscad"
+elif [ -f "/Applications/OpenSCAD.app/Contents/MacOS/OpenSCAD" ]; then
+    OPENSCAD_BIN="/Applications/OpenSCAD.app/Contents/MacOS/OpenSCAD"
+elif [ -f "$HOME/Applications/OpenSCAD.app/Contents/MacOS/OpenSCAD" ]; then
+    OPENSCAD_BIN="$HOME/Applications/OpenSCAD.app/Contents/MacOS/OpenSCAD"
+else
+    # Search for versioned OpenSCAD installations (e.g., OpenSCAD-2021.01.app)
+    OPENSCAD_APP=$(find /Applications -name "OpenSCAD*.app" -maxdepth 1 2>/dev/null | head -1)
+    if [ -n "$OPENSCAD_APP" ]; then
+        OPENSCAD_BIN="$OPENSCAD_APP/Contents/MacOS/OpenSCAD"
+    fi
+fi
+
+if [ -z "$OPENSCAD_BIN" ] || [ ! -f "$OPENSCAD_BIN" ]; then
+    echo "❌ Error: OpenSCAD not found!"
+    echo "Please install OpenSCAD from: https://openscad.org/downloads.html"
+    echo ""
+    echo "Searched locations:"
+    echo "  • /Applications/OpenSCAD*.app"
+    echo "  • ~/Applications/OpenSCAD.app"
+    echo "  • System PATH"
+    exit 1
+fi
+
+echo "✓ Found OpenSCAD: $OPENSCAD_BIN"
+
+# Check if SCAD file exists
+if [ ! -f "${scadFilename}" ]; then
+    echo "❌ Error: ${scadFilename} not found in $TARGET_DIR"
+    exit 1
+fi
+
+echo ""
+echo "🎨 Cycles 2.2 Layer Renderer - ${folderName}"
+echo "================================"
+echo ""
+
+# Interactive prompts
+read -p "Render STRUCTURE (frames + legs + anchors)? (y/n): " render_structure
+read -p "Is this the FRONT-FACING layer (caps anchor holes)? (y/n): " is_front_face
+read -p "Render WASHERS (lens holders)? (y/n): " render_washers
+
+echo ""
+echo "Starting renders..."
+echo ""
+
+FILES_CREATED=()
+
+# Render structure if requested
+if [[ "$render_structure" =~ ^[Yy]$ ]]; then
+    if [[ "$is_front_face" =~ ^[Yy]$ ]]; then
+        echo "🔧 Rendering STRUCTURE (FRONT-FACING with capped anchors)..."
+        FRONT_FACE_VALUE="true"
+    else
+        echo "🔧 Rendering STRUCTURE (standard)..."
+        FRONT_FACE_VALUE="false"
+    fi
+
+    "$OPENSCAD_BIN" -o "${frameFilename}" \\
+        -D 'EXPORT_STRUCTURE=true' \\
+        -D 'EXPORT_WASHERS=false' \\
+        -D "FRONT_FACE=$FRONT_FACE_VALUE" \\
+        "${scadFilename}"
+
+    if [ $? -eq 0 ]; then
+        echo "✅ Structure exported: ${frameFilename}"
+        FILES_CREATED+=("${frameFilename}")
+    else
+        echo "❌ Structure rendering failed"
+        exit 1
+    fi
+    echo ""
+fi
+
+# Render washers if requested
+if [[ "$render_washers" =~ ^[Yy]$ ]]; then
+    echo "💍 Rendering WASHERS (lens holders)..."
+    "$OPENSCAD_BIN" -o "${ringsFilename}" \\
+        -D 'EXPORT_STRUCTURE=false' \\
+        -D 'EXPORT_WASHERS=true' \\
+        "${scadFilename}"
+
+    if [ $? -eq 0 ]; then
+        echo "✅ Washers exported: ${ringsFilename}"
+        FILES_CREATED+=("${ringsFilename}")
+    else
+        echo "❌ Washers rendering failed"
+        exit 1
+    fi
+    echo ""
+fi
+
+# Summary
+echo "🎉 Layer ${folderName} complete!"
+echo "================================"
+echo "📂 Location: $TARGET_DIR"
+echo ""
+echo "Files in this layer:"
+if [ \${#FILES_CREATED[@]} -gt 0 ]; then
+    for file in "\${FILES_CREATED[@]}"; do
+        echo "  • $file"
+    done
+fi
+echo "  • ${pngFilename}"
+echo "  • ${jsonFilename}"
+echo "  • ${svgFilename}"
+echo "  • ${scadFilename}"
+echo ""
+echo "✨ Ready for 3D printing!"
+echo ""
+read -p "Press Enter to close..."
+`;
+
+            // Download script file as .command (Mac auto-executable)
+            const blob = new Blob([script], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `render_${folderName}.command`;
+            link.click();
+            URL.revokeObjectURL(url);
+
+            console.log(`OpenSCAD automation script exported: render_${folderName}.command (double-click to run!)`);
+        }
+
+        function getBridgeAttachmentPointForSCAD(lens, position, legOffset) {
+            switch(position) {
+                case 'L':
+                    return {
+                        x: lens.position.x - (lens.radius - legOffset),
+                        y: lens.position.y
+                    };
+                case 'C':
+                    return {
+                        x: lens.position.x,
+                        y: lens.position.y + (lens.radius - legOffset)
+                    };
+                case 'R':
+                    return {
+                        x: lens.position.x + (lens.radius - legOffset),
+                        y: lens.position.y
+                    };
+            }
+        }
+
+        function step() {
+            // Try to add one ring
+            const maxAttempts = 500;
+            let placed = false;
+
+            for (let attempt = 0; attempt < maxAttempts && !placed; attempt++) {
+                attempts++;
+
+                // Pick random anchor to be tangent to
+                const anchor = anchors[Math.floor(rng() * anchors.length)];
+
+                // Pick random radius with more variety
+                // Use weighted distribution: favor medium sizes but allow extremes
+                const r = rng();
+                let radius;
+                if (r < 0.15) {
+                    // 15% small lenses (10-25mm)
+                    radius = rng() * 15 + 10;
+                } else if (r < 0.70) {
+                    // 55% medium lenses (25-50mm)
+                    radius = rng() * 25 + 25;
+                } else if (r < 0.90) {
+                    // 20% large lenses (50-75mm)
+                    radius = rng() * 25 + 50;
+                } else {
+                    // 10% extra large lenses (75-100mm)
+                    radius = rng() * 25 + 75;
+                }
+
+                // Pick second tangent target (another ring or anchor)
+                const targets = [...rings, ...anchors.filter(a => a !== anchor)];
+
+                if (targets.length === 0) {
+                    // First ring - place tangent to anchor at random angle
+                    const angle = rng() * Math.PI * 2;
+                    const dist = anchor.radius + radius;
+                    const x = anchor.x + Math.cos(angle) * dist;
+                    const y = anchor.y + Math.sin(angle) * dist;
+
+                    if (isValid({x, y, radius})) {
+                        // Assign color from palette and leg type
+                        const color = LENS_COLORS[rings.length % LENS_COLORS.length];
+                        const legType = assignLegType(rng, x, y, radius);
+                        rings.push({x, y, radius, color, legType});
+                        placed = true;
+                    }
+                } else {
+                    // Solve for circle tangent to anchor AND another target
+                    const target = targets[Math.floor(rng() * targets.length)];
+                    const solution = solveTangentCircle(anchor, target, radius);
+
+                    if (solution && isValid(solution)) {
+                        // Assign color from palette and leg type
+                        const color = LENS_COLORS[rings.length % LENS_COLORS.length];
+                        const legType = assignLegType(rng, solution.x, solution.y, solution.radius);
+                        solution.color = color;
+                        solution.legType = legType;
+                        rings.push(solution);
+                        placed = true;
+                    }
+                }
+            }
+
+            draw();
+            updateInfo();
+        }
+
+        // Strategy-specific step functions
+
+        function stepLargeOnly() {
+            // Sparse Giant strategy - only large lenses (50-90mm)
+            const maxAttempts = 500;
+            let placed = false;
+
+            for (let attempt = 0; attempt < maxAttempts && !placed; attempt++) {
+                attempts++;
+
+                const anchor = anchors[Math.floor(rng() * anchors.length)];
+                const radius = rng() * 40 + 50; // 50-90mm only - HUGE
+
+                const targets = [...rings, ...anchors.filter(a => a !== anchor)];
+
+                if (targets.length === 0) {
+                    const angle = rng() * Math.PI * 2;
+                    const dist = anchor.radius + radius;
+                    const x = anchor.x + Math.cos(angle) * dist;
+                    const y = anchor.y + Math.sin(angle) * dist;
+
+                    if (isValid({x, y, radius})) {
+                        const color = LENS_COLORS[rings.length % LENS_COLORS.length];
+                        const legType = assignLegType(rng);
+                        rings.push({x, y, radius, color, legType});
+                        placed = true;
+                    }
+                } else {
+                    const target = targets[Math.floor(rng() * targets.length)];
+                    const solution = solveTangentCircle(anchor, target, radius);
+
+                    if (solution && isValid(solution)) {
+                        const color = LENS_COLORS[rings.length % LENS_COLORS.length];
+                        const legType = assignLegType(rng);
+                        solution.color = color;
+                        solution.legType = legType;
+                        rings.push(solution);
+                        placed = true;
+                    }
+                }
+            }
+            // Don't draw/update on every step - wait until all lenses are placed
+        }
+
+        function stepSmallOnly() {
+            // Micro Cluster strategy - many tiny lenses with TIGHT PACKING
+            // Uses tangent placement with increased tolerance for dense clusters
+            const maxAttempts = 3000; // Very high attempts for dense micro packing
+            let placed = false;
+
+            for (let attempt = 0; attempt < maxAttempts && !placed; attempt++) {
+                attempts++;
+
+                const radius = rng() * 15 + 10; // 10-25mm - small but packable
+
+                // Use existing lenses AND anchors as tangent targets
+                const targets = [...rings, ...anchors];
+
+                if (targets.length === 0) {
+                    // First lens - place anywhere valid
+                    const x = (rng() - 0.5) * (BOUNDARY - radius * 2);
+                    const y = (rng() - 0.5) * (BOUNDARY - radius * 2);
+
+                    if (isValid({x, y, radius})) {
+                        const color = LENS_COLORS[rings.length % LENS_COLORS.length];
+                        const legType = assignLegType(rng, x, y, radius);
+                        rings.push({x, y, radius, color, legType});
+                        placed = true;
+                    }
+                } else {
+                    // Pick a random target to be tangent to
+                    const target = targets[Math.floor(rng() * targets.length)];
+
+                    // Calculate tangent position at random angle
+                    const angle = rng() * Math.PI * 2;
+                    const dist = target.radius + radius;
+                    const x = target.x + Math.cos(angle) * dist;
+                    const y = target.y + Math.sin(angle) * dist;
+
+                    const candidate = {x, y, radius};
+
+                    if (isValid(candidate)) {
+                        const color = LENS_COLORS[rings.length % LENS_COLORS.length];
+                        const legType = assignLegType(rng, x, y, radius);
+                        candidate.color = color;
+                        candidate.legType = legType;
+                        rings.push(candidate);
+                        placed = true;
+                    }
+                }
+            }
+        }
+
+        function stepSmallOnlyOG() {
+            // Micro Cluster (OG) - Original implementation with strict 2-point tangent solving
+            // This recreates the classic "chain" behavior that stopped at 6-10 lenses
+            const maxAttempts = 200; // Reduced to prevent freezing
+            let placed = false;
+
+            for (let attempt = 0; attempt < maxAttempts && !placed; attempt++) {
+                attempts++;
+
+                const anchor = anchors[Math.floor(rng() * anchors.length)];
+                const radius = rng() * 15 + 10; // 10-25mm - same as OG
+
+                const targets = [...rings, ...anchors.filter(a => a !== anchor)];
+
+                if (targets.length === 0) {
+                    // First lens - place tangent to anchor
+                    const angle = rng() * Math.PI * 2;
+                    const dist = anchor.radius + radius;
+                    const x = anchor.x + Math.cos(angle) * dist;
+                    const y = anchor.y + Math.sin(angle) * dist;
+
+                    if (isValid({x, y, radius})) {
+                        const color = LENS_COLORS[rings.length % LENS_COLORS.length];
+                        const legType = assignLegType(rng);
+                        rings.push({x, y, radius, color, legType});
+                        placed = true;
+                    }
+                } else {
+                    // Use strict 2-point tangent solving (OG method)
+                    const target = targets[Math.floor(rng() * targets.length)];
+                    const solution = solveTangentCircle(anchor, target, radius);
+
+                    if (solution && isValid(solution)) {
+                        const color = LENS_COLORS[rings.length % LENS_COLORS.length];
+                        const legType = assignLegType(rng);
+                        solution.color = color;
+                        solution.legType = legType;
+                        rings.push(solution);
+                        placed = true;
+                    }
+                }
+            }
+        }
+
+        function stepMaximal() {
+            // Minimalist strategy - try progressively larger radii until one fits
+            const maxAttempts = 100;
+            let placed = false;
+
+            // Try radii from large to small: 100mm down to 30mm
+            for (let testRadius = 100; testRadius >= 30 && !placed; testRadius -= 5) {
+                for (let attempt = 0; attempt < maxAttempts && !placed; attempt++) {
+                    attempts++;
+
+                    const anchor = anchors[Math.floor(rng() * anchors.length)];
+                    const targets = [...rings, ...anchors.filter(a => a !== anchor)];
+
+                    if (targets.length === 0) {
+                        const angle = rng() * Math.PI * 2;
+                        const dist = anchor.radius + testRadius;
+                        const x = anchor.x + Math.cos(angle) * dist;
+                        const y = anchor.y + Math.sin(angle) * dist;
+
+                        if (isValid({x, y, radius: testRadius})) {
+                            const color = LENS_COLORS[rings.length % LENS_COLORS.length];
+                            const legType = assignLegType(rng);
+                            rings.push({x, y, radius: testRadius, color, legType});
+                            placed = true;
+                        }
+                    } else {
+                        const target = targets[Math.floor(rng() * targets.length)];
+                        const solution = solveTangentCircle(anchor, target, testRadius);
+
+                        if (solution && isValid(solution)) {
+                            const color = LENS_COLORS[rings.length % LENS_COLORS.length];
+                            const legType = assignLegType(rng);
+                            solution.color = color;
+                            solution.legType = legType;
+                            rings.push(solution);
+                            placed = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        function generateTwins(targetCount) {
+            // Twins strategy - pick 2-3 radius values and repeat them
+            const numSizes = Math.floor(rng() * 2) + 2; // 2-3 different sizes
+            const sizes = [];
+
+            // Pick distinct sizes
+            for (let i = 0; i < numSizes; i++) {
+                sizes.push(rng() * 50 + 20); // 20-70mm range
+            }
+
+            console.log('👯 Twin sizes:', sizes.map(s => s.toFixed(1)));
+
+            // Place lenses using only these sizes
+            for (let i = 0; i < targetCount; i++) {
+                const radius = sizes[i % sizes.length]; // Cycle through the twin sizes
+                const maxAttempts = 500;
+                let placed = false;
+
+                for (let attempt = 0; attempt < maxAttempts && !placed; attempt++) {
+                    attempts++;
+
+                    const anchor = anchors[Math.floor(rng() * anchors.length)];
+                    const targets = [...rings, ...anchors.filter(a => a !== anchor)];
+
+                    if (targets.length === 0) {
+                        const angle = rng() * Math.PI * 2;
+                        const dist = anchor.radius + radius;
+                        const x = anchor.x + Math.cos(angle) * dist;
+                        const y = anchor.y + Math.sin(angle) * dist;
+
+                        if (isValid({x, y, radius})) {
+                            const color = LENS_COLORS[rings.length % LENS_COLORS.length];
+                            const legType = assignLegType(rng);
+                            rings.push({x, y, radius, color, legType});
+                            placed = true;
+                        }
+                    } else {
+                        const target = targets[Math.floor(rng() * targets.length)];
+                        const solution = solveTangentCircle(anchor, target, radius);
+
+                        if (solution && isValid(solution)) {
+                            const color = LENS_COLORS[rings.length % LENS_COLORS.length];
+                            const legType = assignLegType(rng);
+                            solution.color = color;
+                            solution.legType = legType;
+                            rings.push(solution);
+                            placed = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        function generateApollonian(targetCount) {
+            // Apollonian strategy - start with circle tangent to all 3 anchors, then nest
+
+            // First, try to find circle tangent to all 3 anchors
+            const baseCircle = findTriTangentCircle();
+
+            if (baseCircle) {
+                const color = LENS_COLORS[0];
+                const legType = assignLegType(rng);
+                rings.push({...baseCircle, color, legType});
+                console.log('🎯 Apollonian base circle:', baseCircle.radius.toFixed(1) + 'mm');
+            }
+
+            // Then pack smaller circles in remaining space
+            for (let i = rings.length; i < targetCount; i++) {
+                step();
+            }
+        }
+
+        function generateHalo(targetCount) {
+            // Halo strategy - one giant lens as focal point + swarm of tiny lenses
+
+            // Step 1: Place ONE giant lens (70-95mm)
+            const giantRadius = rng() * 25 + 70; // 70-95mm - MASSIVE
+            const maxAttempts = 200;
+            let giantPlaced = false;
+
+            for (let attempt = 0; attempt < maxAttempts && !giantPlaced; attempt++) {
+                attempts++;
+
+                // Try to place giant lens near center or tangent to one anchor
+                const anchor = anchors[Math.floor(rng() * anchors.length)];
+
+                // 50% chance: near center, 50% chance: tangent to anchor
+                let x, y;
+                if (rng() < 0.5) {
+                    // Place near center with small offset
+                    const offset = (rng() - 0.5) * 30; // ±15mm from center
+                    const angle = rng() * Math.PI * 2;
+                    x = Math.cos(angle) * Math.abs(offset);
+                    y = Math.sin(angle) * Math.abs(offset);
+                } else {
+                    // Place tangent to an anchor
+                    const angle = rng() * Math.PI * 2;
+                    const dist = anchor.radius + giantRadius;
+                    x = anchor.x + Math.cos(angle) * dist;
+                    y = anchor.y + Math.sin(angle) * dist;
+                }
+
+                if (isValid({x, y, radius: giantRadius})) {
+                    const color = LENS_COLORS[0];
+                    const legType = assignLegType(rng);
+                    rings.push({x, y, radius: giantRadius, color, legType});
+                    giantPlaced = true;
+                    console.log(`☀️ Halo giant lens: ${giantRadius.toFixed(1)}mm at (${x.toFixed(1)}, ${y.toFixed(1)})`);
+                }
+            }
+
+            if (!giantPlaced) {
+                console.log('⚠️ Halo: Could not place giant lens, trying smaller...');
+                // Fallback: try a smaller giant
+                for (let testRadius = 65; testRadius >= 40 && !giantPlaced; testRadius -= 5) {
+                    for (let attempt = 0; attempt < 50 && !giantPlaced; attempt++) {
+                        const anchor = anchors[Math.floor(rng() * anchors.length)];
+                        const angle = rng() * Math.PI * 2;
+                        const dist = anchor.radius + testRadius;
+                        const x = anchor.x + Math.cos(angle) * dist;
+                        const y = anchor.y + Math.sin(angle) * dist;
+
+                        if (isValid({x, y, radius: testRadius})) {
+                            const color = LENS_COLORS[0];
+                            const legType = assignLegType(rng);
+                            rings.push({x, y, radius: testRadius, color, legType});
+                            giantPlaced = true;
+                            console.log(`☀️ Halo giant lens (fallback): ${testRadius}mm`);
+                        }
+                    }
+                }
+            }
+
+            // Step 2: Fill remaining space with SWARM of tiny lenses (8-18mm)
+            const remainingCount = targetCount - rings.length;
+            let totalAttempts = 0;
+            const maxTotalAttempts = remainingCount * 1000;
+
+            while (rings.length < targetCount && totalAttempts < maxTotalAttempts) {
+                const beforeCount = rings.length;
+                stepTinySwarm(); // Use tiny lenses (8-18mm)
+                totalAttempts += 500;
+
+                if (rings.length === beforeCount) {
+                    console.log(`⚠️ Halo stopped early: ${rings.length}/${targetCount} lenses (1 giant + ${rings.length - 1} tiny)`);
+                    break;
+                }
+            }
+
+            console.log(`✨ Halo complete: ${rings.length} lenses (1 giant @ ${rings[0]?.radius.toFixed(1)}mm + ${rings.length - 1} tiny)`);
+        }
+
+        function stepTinySwarm() {
+            // Ultra-tiny lenses for Halo swarm effect (8-18mm)
+            const maxAttempts = 500;
+            let placed = false;
+
+            for (let attempt = 0; attempt < maxAttempts && !placed; attempt++) {
+                attempts++;
+
+                const anchor = anchors[Math.floor(rng() * anchors.length)];
+                const radius = rng() * 10 + 8; // 8-18mm - EXTRA TINY for swarm
+
+                const targets = [...rings, ...anchors.filter(a => a !== anchor)];
+
+                if (targets.length === 0) {
+                    const angle = rng() * Math.PI * 2;
+                    const dist = anchor.radius + radius;
+                    const x = anchor.x + Math.cos(angle) * dist;
+                    const y = anchor.y + Math.sin(angle) * dist;
+
+                    if (isValid({x, y, radius})) {
+                        const color = LENS_COLORS[rings.length % LENS_COLORS.length];
+                        const legType = assignLegType(rng);
+                        rings.push({x, y, radius, color, legType});
+                        placed = true;
+                    }
+                } else {
+                    const target = targets[Math.floor(rng() * targets.length)];
+                    const solution = solveTangentCircle(anchor, target, radius);
+
+                    if (solution && isValid(solution)) {
+                        const color = LENS_COLORS[rings.length % LENS_COLORS.length];
+                        const legType = assignLegType(rng);
+                        solution.color = color;
+                        solution.legType = legType;
+                        rings.push(solution);
+                        placed = true;
+                    }
+                }
+            }
+        }
+
+        function findTriTangentCircle() {
+            // Find circle tangent to all 3 anchors (nestled between them)
+            // This is the inner Soddy circle for 3 circles
+
+            if (anchors.length < 3) return null;
+
+            const [a1, a2, a3] = anchors;
+
+            // Use Descartes Circle Theorem
+            // For 3 mutually tangent circles with curvatures k1, k2, k3
+            // The fourth tangent circle has curvature: k4 = k1 + k2 + k3 ± 2√(k1k2 + k2k3 + k3k1)
+
+            const k1 = 1 / a1.radius;
+            const k2 = 1 / a2.radius;
+            const k3 = 1 / a3.radius;
+
+            // We want the circle nestled BETWEEN the three anchors (positive curvature)
+            const sum = k1 + k2 + k3;
+            const products = k1*k2 + k2*k3 + k3*k1;
+            const k4_inner = sum + 2 * Math.sqrt(products);
+
+            const radius = 1 / k4_inner;
+
+            // Now find the center position using Complex Descartes theorem
+            // This is geometrically complex, so we'll use a simplified approach:
+            // Try to solve for a circle tangent to all 3 anchors
+
+            // Calculate center by solving tangency constraints
+            // This requires solving a system of equations - for now, use approximation
+
+            // Centroid of the three anchor positions
+            const cx = (a1.x + a2.x + a3.x) / 3;
+            const cy = (a1.y + a2.y + a3.y) / 3;
+
+            // Check if this position with calculated radius is valid
+            const candidate = {x: cx, y: cy, radius: radius};
+
+            if (isValid(candidate) && radius > 5 && radius < 100) {
+                return candidate;
+            }
+
+            return null;
+        }
+
+        function updateInfo() {
+            document.getElementById('circle-count').textContent = rings.length;
+            document.getElementById('attempts').textContent = attempts;
+            document.getElementById('seed-display').textContent = currentSeed;
+            const paletteKey = PALETTE_ORDER[currentPaletteIndex];
+            document.getElementById('palette-name').textContent = COLOR_PALETTES[paletteKey].name;
+            document.getElementById('strategy-name').textContent = STRATEGIES[currentStrategy].name;
+            document.getElementById('leg-strategy-name').textContent = LEG_STRATEGIES[currentLegStrategy].name;
+            document.getElementById('bridge-count').textContent = bridges.length;
+        }
+
+        function solveTangentCircle(c1, c2, radius) {
+            // Solve for circle of given radius tangent to both c1 and c2
+            // This is Apollonius' problem (CPP case - two circles, one point/radius)
+
+            const dx = c2.x - c1.x;
+            const dy = c2.y - c1.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            // Distance from c1 center to new circle center
+            const d1 = c1.radius + radius;
+            // Distance from c2 center to new circle center
+            const d2 = c2.radius + radius;
+
+            // Check if solution is possible
+            if (Math.abs(d1 - d2) > dist || d1 + d2 < dist) {
+                return null;
+            }
+
+            // Using law of cosines to find angle
+            const a = (d1 * d1 - d2 * d2 + dist * dist) / (2 * dist);
+            const h = Math.sqrt(d1 * d1 - a * a);
+
+            // Midpoint along line between centers
+            const mx = c1.x + (dx / dist) * a;
+            const my = c1.y + (dy / dist) * a;
+
+            // Perpendicular offset
+            const px = -dy / dist;
+            const py = dx / dist;
+
+            // Two solutions (pick one randomly)
+            const sign = rng() < 0.5 ? 1 : -1;
+            return {
+                x: mx + px * h * sign,
+                y: my + py * h * sign,
+                radius: radius
+            };
+        }
+
+        function isValid(circle, excludeSelf = false) {
+            // Check bounds
+            if (Math.abs(circle.x) + circle.radius > BOUNDARY / 2) return false;
+            if (Math.abs(circle.y) + circle.radius > BOUNDARY / 2) return false;
+
+            // Strategy-specific constraints
+            const strategy = STRATEGIES[currentStrategy];
+            if (strategy.constraint === 'upper_half') {
+                // Top-Heavy: only allow lenses in upper half (y < 0)
+                if (circle.y > 0) return false;
+            } else if (strategy.constraint === 'lower_half') {
+                // Bottom-Heavy: only allow lenses in lower half (y > 0)
+                if (circle.y < 0) return false;
+            } else if (strategy.constraint === 'ring') {
+                // Ring Formation: no lenses within 50mm of center (scaled for wall)
+                const distFromCenter = Math.sqrt(circle.x * circle.x + circle.y * circle.y);
+                if (distFromCenter < 50) return false;
+            }
+
+            // Check no overlap with existing rings
+            for (const ring of rings) {
+                // Skip checking against itself when resizing or dragging
+                if (excludeSelf && ring === circle) continue;
+
+                const dx = circle.x - ring.x;
+                const dy = circle.y - ring.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < circle.radius + ring.radius - 1) { // -1mm tolerance
+                    return false;
+                }
+            }
+
+            // Check no overlap with anchors (except tangency)
+            for (const anchor of anchors) {
+                const dx = circle.x - anchor.x;
+                const dy = circle.y - anchor.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const expectedDist = circle.radius + anchor.radius;
+                // Allow tangency (within 2mm) but not overlap
+                if (dist < circle.radius + anchor.radius - 2 && Math.abs(dist - expectedDist) > 2) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        function draw() {
+            // Clear with white
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw 152mm × 152mm workspace boundary (10% gray)
+            const workspaceSize = BOUNDARY * SCALE; // 152mm × 3.5 = 532px
+            const workspaceX = CENTER_X - (workspaceSize / 2);
+            const workspaceY = CENTER_Y - (workspaceSize / 2);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.10)'; // 10% gray
+            ctx.fillRect(workspaceX, workspaceY, workspaceSize, workspaceSize);
+
+            // Draw ground plane guide (soft gray, not exported)
+            const groundY = CENTER_Y + (BOUNDARY / 2) * SCALE;
+            ctx.strokeStyle = '#cccccc';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(0, groundY);
+            ctx.lineTo(canvas.width, groundY);
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset dash
+
+            // Draw ground plane label
+            ctx.fillStyle = '#999999';
+            ctx.font = '12px Courier New';
+            ctx.textAlign = 'left';
+            ctx.fillText('GROUND PLANE (Y=+125mm)', 10, groundY - 5);
+
+            // Draw center axes (soft gray, not exported)
+            ctx.strokeStyle = '#dddddd';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 3]);
+
+            // Vertical axis (Y-axis)
+            ctx.beginPath();
+            ctx.moveTo(CENTER_X, 0);
+            ctx.lineTo(CENTER_X, canvas.height);
+            ctx.stroke();
+
+            // Horizontal axis (X-axis)
+            ctx.beginPath();
+            ctx.moveTo(0, CENTER_Y);
+            ctx.lineTo(canvas.width, CENTER_Y);
+            ctx.stroke();
+
+            ctx.setLineDash([]); // Reset dash
+
+            // Draw axis labels
+            ctx.fillStyle = '#aaaaaa';
+            ctx.font = '11px Courier New';
+            ctx.textAlign = 'center';
+            ctx.fillText('X=0', CENTER_X, CENTER_Y - 5);
+            ctx.textAlign = 'left';
+            ctx.fillText('Y=0', CENTER_X + 5, CENTER_Y + 12);
+
+            // Draw legs (if enabled)
+            const showLegs = document.getElementById('showLegs').checked;
+            if (showLegs) {
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = LEG_THICKNESS * SCALE; // 1.2mm legs
+
+                rings.forEach(ring => {
+                    const cx = CENTER_X + ring.x * SCALE;
+                    const cy = CENTER_Y + ring.y * SCALE;
+                    const r = ring.radius * SCALE;
+                    const legOffset = 0.6; // mm - half of frame outer ring width (1.2mm / 2)
+                    const groundY = CENTER_Y + (BOUNDARY / 2) * SCALE;
+
+                    switch(ring.legType) {
+                        case 'none':
+                            // No legs
+                            break;
+
+                        case 'single':
+                            // Single straight leg from center bottom (offset inward)
+                            const singleY = cy + (ring.radius - legOffset) * SCALE;
+                            ctx.beginPath();
+                            ctx.moveTo(cx, singleY);
+                            ctx.lineTo(cx, groundY);
+                            ctx.stroke();
+                            break;
+
+                        case 'double':
+                            // Two straight legs from left and right (offset inward)
+                            const doubleLeftX = cx - (ring.radius - legOffset) * SCALE;
+                            const doubleRightX = cx + (ring.radius - legOffset) * SCALE;
+
+                            ctx.beginPath();
+                            ctx.moveTo(doubleLeftX, cy);
+                            ctx.lineTo(doubleLeftX, groundY);
+                            ctx.stroke();
+
+                            ctx.beginPath();
+                            ctx.moveTo(doubleRightX, cy);
+                            ctx.lineTo(doubleRightX, groundY);
+                            ctx.stroke();
+                            break;
+
+                        case 'left_only':
+                            // Single straight leg from left edge only
+                            const leftOnlyX = cx - (ring.radius - legOffset) * SCALE;
+                            ctx.beginPath();
+                            ctx.moveTo(leftOnlyX, cy);
+                            ctx.lineTo(leftOnlyX, groundY);
+                            ctx.stroke();
+                            break;
+
+                        case 'right_only':
+                            // Single straight leg from right edge only
+                            const rightOnlyX = cx + (ring.radius - legOffset) * SCALE;
+                            ctx.beginPath();
+                            ctx.moveTo(rightOnlyX, cy);
+                            ctx.lineTo(rightOnlyX, groundY);
+                            ctx.stroke();
+                            break;
+
+                        case 'curved_lc':
+                            // Left-center U-shaped leg
+                            // Vertical leg from left edge (offset inward by 0.6mm)
+                            const leftEdgeX1 = cx - (ring.radius - legOffset) * SCALE;
+                            const leftEdgeY1 = cy;
+
+                            // Vertical leg from center bottom (offset inward by 0.6mm)
+                            const centerBottomX1 = cx;
+                            const centerBottomY1 = cy + (ring.radius - legOffset) * SCALE;
+
+                            // Arc radius for the U-shape bottom
+                            const arcRadius1 = (centerBottomX1 - leftEdgeX1) / 2;
+                            const arcCenterX1 = leftEdgeX1 + arcRadius1;
+                            const arcCenterY1 = groundY - arcRadius1;
+
+                            // Only draw if arc center is below ring
+                            if (arcCenterY1 > cy + r) {
+                                // Draw left vertical
+                                ctx.beginPath();
+                                ctx.moveTo(leftEdgeX1, leftEdgeY1);
+                                ctx.lineTo(leftEdgeX1, arcCenterY1);
+                                ctx.stroke();
+
+                                // Draw right vertical
+                                ctx.beginPath();
+                                ctx.moveTo(centerBottomX1, centerBottomY1);
+                                ctx.lineTo(centerBottomX1, arcCenterY1);
+                                ctx.stroke();
+
+                                // Draw U-shaped arc at bottom
+                                ctx.beginPath();
+                                ctx.arc(arcCenterX1, arcCenterY1, arcRadius1, 0, Math.PI, false);
+                                ctx.stroke();
+                            }
+                            break;
+
+                        case 'curved_cr':
+                            // Center-right U-shaped leg
+                            // Vertical leg from center bottom (offset inward by 0.6mm)
+                            const centerBottomX2 = cx;
+                            const centerBottomY2 = cy + (ring.radius - legOffset) * SCALE;
+
+                            // Vertical leg from right edge (offset inward by 0.6mm)
+                            const rightEdgeX2 = cx + (ring.radius - legOffset) * SCALE;
+                            const rightEdgeY2 = cy;
+
+                            // Arc radius for the U-shape bottom
+                            const arcRadius2 = (rightEdgeX2 - centerBottomX2) / 2;
+                            const arcCenterX2 = centerBottomX2 + arcRadius2;
+                            const arcCenterY2 = groundY - arcRadius2;
+
+                            // Only draw if arc center is below ring
+                            if (arcCenterY2 > cy + r) {
+                                // Draw left vertical
+                                ctx.beginPath();
+                                ctx.moveTo(centerBottomX2, centerBottomY2);
+                                ctx.lineTo(centerBottomX2, arcCenterY2);
+                                ctx.stroke();
+
+                                // Draw right vertical
+                                ctx.beginPath();
+                                ctx.moveTo(rightEdgeX2, rightEdgeY2);
+                                ctx.lineTo(rightEdgeX2, arcCenterY2);
+                                ctx.stroke();
+
+                                // Draw U-shaped arc at bottom
+                                ctx.beginPath();
+                                ctx.arc(arcCenterX2, arcCenterY2, arcRadius2, 0, Math.PI, false);
+                                ctx.stroke();
+                            }
+                            break;
+
+                        case 'curved_lr':
+                            // Left-right wide U-shaped leg
+                            // Vertical leg from left edge (offset inward by 0.6mm)
+                            const leftEdgeX3 = cx - (ring.radius - legOffset) * SCALE;
+                            const leftEdgeY3 = cy;
+
+                            // Vertical leg from right edge (offset inward by 0.6mm)
+                            const rightEdgeX3 = cx + (ring.radius - legOffset) * SCALE;
+                            const rightEdgeY3 = cy;
+
+                            // Arc radius for the wide U-shape bottom
+                            const arcRadius3 = (rightEdgeX3 - leftEdgeX3) / 2;
+                            const arcCenterX3 = cx;
+                            const arcCenterY3 = groundY - arcRadius3;
+
+                            // Only draw if arc center is below ring
+                            if (arcCenterY3 > cy + r) {
+                                // Draw left vertical
+                                ctx.beginPath();
+                                ctx.moveTo(leftEdgeX3, leftEdgeY3);
+                                ctx.lineTo(leftEdgeX3, arcCenterY3);
+                                ctx.stroke();
+
+                                // Draw right vertical
+                                ctx.beginPath();
+                                ctx.moveTo(rightEdgeX3, rightEdgeY3);
+                                ctx.lineTo(rightEdgeX3, arcCenterY3);
+                                ctx.stroke();
+
+                                // Draw U-shaped arc at bottom
+                                ctx.beginPath();
+                                ctx.arc(arcCenterX3, arcCenterY3, arcRadius3, 0, Math.PI, false);
+                                ctx.stroke();
+                            }
+                            break;
+
+                        case 'curved_adjacent':
+                            // Bridge leg connecting two adjacent (tangent) lenses
+                            if (ring.adjacentRingIndex !== -1 && ring.adjacentRingIndex < rings.length) {
+                                const adjacent = rings[ring.adjacentRingIndex];
+
+                                // Calculate tangent point between the two circles
+                                const dx = adjacent.x - ring.x;
+                                const dy = adjacent.y - ring.y;
+                                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                                // Tangent point is along the line connecting centers
+                                // At distance r1 from center1
+                                const tangentX = ring.x + (dx / dist) * ring.radius;
+                                const tangentY = ring.y + (dy / dist) * ring.radius;
+
+                                // Convert to canvas coordinates
+                                const tangentCanvasX = CENTER_X + tangentX * SCALE;
+                                const tangentCanvasY = CENTER_Y + tangentY * SCALE;
+
+                                // Draw two vertical legs from the tangent point
+                                const legSpacing = 3 * SCALE; // 3mm apart
+                                const leg1X = tangentCanvasX - legSpacing / 2;
+                                const leg2X = tangentCanvasX + legSpacing / 2;
+
+                                // Arc radius for the bridge
+                                const bridgeArcRadius = legSpacing / 2;
+                                const bridgeArcCenterX = tangentCanvasX;
+                                const bridgeArcCenterY = groundY - bridgeArcRadius;
+
+                                // Only draw if arc center is below both rings
+                                const ring1Bottom = cy + r;
+                                const adjacent_cy = CENTER_Y + adjacent.y * SCALE;
+                                const adjacent_r = adjacent.radius * SCALE;
+                                const ring2Bottom = adjacent_cy + adjacent_r;
+
+                                if (bridgeArcCenterY > ring1Bottom && bridgeArcCenterY > ring2Bottom) {
+                                    // Draw left vertical leg
+                                    ctx.beginPath();
+                                    ctx.moveTo(leg1X, tangentCanvasY);
+                                    ctx.lineTo(leg1X, bridgeArcCenterY);
+                                    ctx.stroke();
+
+                                    // Draw right vertical leg
+                                    ctx.beginPath();
+                                    ctx.moveTo(leg2X, tangentCanvasY);
+                                    ctx.lineTo(leg2X, bridgeArcCenterY);
+                                    ctx.stroke();
+
+                                    // Draw U-shaped arc at bottom
+                                    ctx.beginPath();
+                                    ctx.arc(bridgeArcCenterX, bridgeArcCenterY, bridgeArcRadius, 0, Math.PI, false);
+                                    ctx.stroke();
+                                }
+                            }
+                            break;
+
+                        // No case needed - handled in default
+
+                        default:
+                            // Handle object-based leg types
+                            if (ring.legType && typeof ring.legType === 'object') {
+                                if (ring.legType.type === 'floating_single') {
+                                    // Single leg that stops mid-air
+                                    const floatHeight = ring.legType.floatHeight * SCALE;
+                                    const floatY = groundY - floatHeight;
+                                    const singleFloatY = cy + (ring.radius - legOffset) * SCALE;
+
+                                    if (floatY > singleFloatY) { // Only draw if float point is below lens
+                                        ctx.beginPath();
+                                        ctx.moveTo(cx, singleFloatY);
+                                        ctx.lineTo(cx, floatY);
+                                        ctx.stroke();
+                                    }
+                                } else if (ring.legType.type === 'floating_double') {
+                                    // Two legs that stop mid-air (symmetric - legacy)
+                                    const floatHeight = ring.legType.floatHeight * SCALE;
+                                    const floatY = groundY - floatHeight;
+                                    const doubleFloatLeftX = cx - (ring.radius - legOffset) * SCALE;
+                                    const doubleFloatRightX = cx + (ring.radius - legOffset) * SCALE;
+
+                                    if (floatY > cy) {
+                                        ctx.beginPath();
+                                        ctx.moveTo(doubleFloatLeftX, cy);
+                                        ctx.lineTo(doubleFloatLeftX, floatY);
+                                        ctx.stroke();
+
+                                        ctx.beginPath();
+                                        ctx.moveTo(doubleFloatRightX, cy);
+                                        ctx.lineTo(doubleFloatRightX, floatY);
+                                        ctx.stroke();
+                                    }
+                                } else if (ring.legType.type === 'floating_double_asymmetric') {
+                                    // ASYMMETRIC: Each leg stops at DIFFERENT height! 🤯
+                                    const floatHeight1 = ring.legType.floatHeight1 * SCALE;
+                                    const floatHeight2 = ring.legType.floatHeight2 * SCALE;
+                                    const floatY1 = groundY - floatHeight1;
+                                    const floatY2 = groundY - floatHeight2;
+                                    const doubleFloatLeftX = cx - (ring.radius - legOffset) * SCALE;
+                                    const doubleFloatRightX = cx + (ring.radius - legOffset) * SCALE;
+
+                                    // Left leg
+                                    if (floatY1 > cy) {
+                                        ctx.beginPath();
+                                        ctx.moveTo(doubleFloatLeftX, cy);
+                                        ctx.lineTo(doubleFloatLeftX, floatY1);
+                                        ctx.stroke();
+                                    }
+
+                                    // Right leg (different height!)
+                                    if (floatY2 > cy) {
+                                        ctx.beginPath();
+                                        ctx.moveTo(doubleFloatRightX, cy);
+                                        ctx.lineTo(doubleFloatRightX, floatY2);
+                                        ctx.stroke();
+                                    }
+                                } else if (ring.legType.type === 'curved_lc_floating') {
+                                    // Curved left-center with randomized depth
+                                    const arcDepth = ring.legType.arcDepth * SCALE;
+                                    const leftEdgeX = cx - (ring.radius - legOffset) * SCALE;
+                                    const centerBottomX = cx;
+                                    const centerBottomY = cy + (ring.radius - legOffset) * SCALE;
+                                    const arcRadius = (centerBottomX - leftEdgeX) / 2;
+                                    const arcCenterX = leftEdgeX + arcRadius;
+                                    const arcCenterY = groundY - arcDepth;
+
+                                    if (arcCenterY > cy + r) {
+                                        ctx.beginPath();
+                                        ctx.moveTo(leftEdgeX, cy);
+                                        ctx.lineTo(leftEdgeX, arcCenterY);
+                                        ctx.stroke();
+
+                                        ctx.beginPath();
+                                        ctx.moveTo(centerBottomX, centerBottomY);
+                                        ctx.lineTo(centerBottomX, arcCenterY);
+                                        ctx.stroke();
+
+                                        ctx.beginPath();
+                                        ctx.arc(arcCenterX, arcCenterY, arcRadius, 0, Math.PI, false);
+                                        ctx.stroke();
+                                    }
+                                } else if (ring.legType.type === 'curved_cr_floating') {
+                                    // Curved center-right with randomized depth
+                                    const arcDepth = ring.legType.arcDepth * SCALE;
+                                    const centerBottomX = cx;
+                                    const centerBottomY = cy + (ring.radius - legOffset) * SCALE;
+                                    const rightEdgeX = cx + (ring.radius - legOffset) * SCALE;
+                                    const arcRadius = (rightEdgeX - centerBottomX) / 2;
+                                    const arcCenterX = centerBottomX + arcRadius;
+                                    const arcCenterY = groundY - arcDepth;
+
+                                    if (arcCenterY > cy + r) {
+                                        ctx.beginPath();
+                                        ctx.moveTo(centerBottomX, centerBottomY);
+                                        ctx.lineTo(centerBottomX, arcCenterY);
+                                        ctx.stroke();
+
+                                        ctx.beginPath();
+                                        ctx.moveTo(rightEdgeX, cy);
+                                        ctx.lineTo(rightEdgeX, arcCenterY);
+                                        ctx.stroke();
+
+                                        ctx.beginPath();
+                                        ctx.arc(arcCenterX, arcCenterY, arcRadius, 0, Math.PI, false);
+                                        ctx.stroke();
+                                    }
+                                } else if (ring.legType.type === 'curved_lr_floating') {
+                                    // Curved left-right with randomized depth
+                                    const arcDepth = ring.legType.arcDepth * SCALE;
+                                    const leftEdgeX = cx - (ring.radius - legOffset) * SCALE;
+                                    const rightEdgeX = cx + (ring.radius - legOffset) * SCALE;
+                                    const arcRadius = (rightEdgeX - leftEdgeX) / 2;
+                                    const arcCenterX = cx;
+                                    const arcCenterY = groundY - arcDepth;
+
+                                    if (arcCenterY > cy + r) {
+                                        ctx.beginPath();
+                                        ctx.moveTo(leftEdgeX, cy);
+                                        ctx.lineTo(leftEdgeX, arcCenterY);
+                                        ctx.stroke();
+
+                                        ctx.beginPath();
+                                        ctx.moveTo(rightEdgeX, cy);
+                                        ctx.lineTo(rightEdgeX, arcCenterY);
+                                        ctx.stroke();
+
+                                        ctx.beginPath();
+                                        ctx.arc(arcCenterX, arcCenterY, arcRadius, 0, Math.PI, false);
+                                        ctx.stroke();
+                                    }
+                                }
+                            }
+                            break;
+                    }
+                });
+            }
+
+            // Draw bridges
+            if (bridges && bridges.length > 0) {
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 1.2 * SCALE;
+                ctx.lineCap = 'butt';
+
+                const legOffset = 0.6; // mm
+                const groundY = CENTER_Y + (BOUNDARY / 2) * SCALE;
+
+                bridges.forEach((bridge, bridgeIndex) => {
+                    const lens1 = rings[bridge.lens1Index];
+                    const lens2 = rings[bridge.lens2Index];
+
+                    // Safety check: skip if lenses don't exist
+                    if (!lens1 || !lens2) return;
+
+                    // Get attachment points for lens 1
+                    const {x: x1, y: y1} = getBridgeAttachmentPoint(lens1, bridge.lens1Position, legOffset);
+                    // Get attachment points for lens 2
+                    const {x: x2, y: y2} = getBridgeAttachmentPoint(lens2, bridge.lens2Position, legOffset);
+
+                    // Convert to canvas coordinates
+                    const canvasX1 = CENTER_X + x1 * SCALE;
+                    const canvasY1 = CENTER_Y + y1 * SCALE;
+                    const canvasX2 = CENTER_X + x2 * SCALE;
+                    const canvasY2 = CENTER_Y + y2 * SCALE;
+
+                    // Calculate arc parameters
+                    const arcRadius = Math.abs(canvasX2 - canvasX1) / 2;
+                    const arcCenterX = (canvasX1 + canvasX2) / 2;
+                    const arcCenterY = groundY - arcRadius;
+
+                    // Only draw if arc center is below both lenses
+                    const lens1Bottom = CENTER_Y + (lens1.y + lens1.radius) * SCALE;
+                    const lens2Bottom = CENTER_Y + (lens2.y + lens2.radius) * SCALE;
+
+                    if (arcCenterY > lens1Bottom && arcCenterY > lens2Bottom) {
+                        // Draw vertical leg 1
+                        ctx.beginPath();
+                        ctx.moveTo(canvasX1, canvasY1);
+                        ctx.lineTo(canvasX1, arcCenterY);
+                        ctx.stroke();
+
+                        // Draw vertical leg 2
+                        ctx.beginPath();
+                        ctx.moveTo(canvasX2, canvasY2);
+                        ctx.lineTo(canvasX2, arcCenterY);
+                        ctx.stroke();
+
+                        // Draw arc connecting them
+                        ctx.beginPath();
+                        if (canvasX1 < canvasX2) {
+                            ctx.arc(arcCenterX, arcCenterY, arcRadius, 0, Math.PI, false);
+                        } else {
+                            ctx.arc(arcCenterX, arcCenterY, arcRadius, Math.PI, 0, true);
+                        }
+                        ctx.stroke();
+                    }
+                });
+            }
+
+            // Draw rings with frame structure
+            const showColors = document.getElementById('showColors').checked;
+            const stealthMode = document.getElementById('stealthMode').checked;
+            const overlapZone = 0.5; // mm - suggested overlap for boolean union
+
+            rings.forEach(ring => {
+                const cx = CENTER_X + ring.x * SCALE;
+                const cy = CENTER_Y + ring.y * SCALE;
+                const r = ring.radius * SCALE;
+                const frameWidth = 1.2; // mm - each part of frame
+                const outerFrameRadius = r; // Outer edge
+                const channelRadius = (ring.radius - frameWidth) * SCALE; // Channel ledge
+                const innerRadius = (ring.radius - LENS_THICKNESS) * SCALE; // Inner clear area
+                const overlapRadius = (ring.radius + overlapZone) * SCALE; // Overlap zone
+
+                if (stealthMode) {
+                    // Stealth mode - all black lenses to focus on silhouette
+                    // Fill entire lens area black
+                    ctx.fillStyle = '#000000';
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, outerFrameRadius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // No need to draw frame rings - just solid black circles
+                    // Draw channel ring (black)
+                    ctx.fillStyle = '#000000';
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, channelRadius, 0, Math.PI * 2);
+                    ctx.arc(cx, cy, innerRadius, 0, Math.PI * 2, true);
+                    ctx.fill();
+                } else if (showColors) {
+                    // Fill inner area with lens color
+                    ctx.fillStyle = ring.color;
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, innerRadius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Draw outer frame ring (black) - from outer edge to channel
+                    ctx.fillStyle = '#000000';
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, outerFrameRadius, 0, Math.PI * 2);
+                    ctx.arc(cx, cy, channelRadius, 0, Math.PI * 2, true); // Counter-clockwise for hole
+                    ctx.fill();
+
+                    // Draw channel ring (black instead of red) - from channel to inner
+                    ctx.fillStyle = '#000000';
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, channelRadius, 0, Math.PI * 2);
+                    ctx.arc(cx, cy, innerRadius, 0, Math.PI * 2, true); // Counter-clockwise for hole
+                    ctx.fill();
+                } else {
+                    // Monochrome mode - draw frame structure in greyscale
+                    // Outer frame ring (black)
+                    ctx.fillStyle = '#000000';
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, outerFrameRadius, 0, Math.PI * 2);
+                    ctx.arc(cx, cy, channelRadius, 0, Math.PI * 2, true);
+                    ctx.fill();
+
+                    // Channel ring (red)
+                    ctx.fillStyle = '#ff4444';
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, channelRadius, 0, Math.PI * 2);
+                    ctx.arc(cx, cy, innerRadius, 0, Math.PI * 2, true);
+                    ctx.fill();
+
+                    // Outline for visibility
+                    ctx.strokeStyle = '#00ff00';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, outerFrameRadius, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+
+                // Highlight selected lens
+                if (selectedLens === ring) {
+                    ctx.strokeStyle = '#ff00ff'; // Magenta highlight
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, outerFrameRadius + 2, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            });
+
+            // Draw anchor points (on top) - 6.36mm circle with 2.8mm square hole
+            anchors.forEach((anchor, i) => {
+                const x = CENTER_X + anchor.x * SCALE;
+                const y = CENTER_Y + anchor.y * SCALE;
+                const outerRadius = (ANCHOR_DIAMETER / 2) * SCALE;
+                const holeSize = ANCHOR_HOLE_SIZE * SCALE;
+                const overlapZone = 0.5; // mm - suggested overlap for boolean union
+
+                // Draw outer circle (black)
+                ctx.fillStyle = '#000000';
+                ctx.beginPath();
+                ctx.arc(x, y, outerRadius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Cut out square hole in center
+                ctx.fillStyle = stealthMode ? '#000000' : '#ffffff';
+                ctx.fillRect(
+                    x - holeSize / 2,
+                    y - holeSize / 2,
+                    holeSize,
+                    holeSize
+                );
+
+                // Stroke square hole for visibility
+                ctx.strokeStyle = '#666666';
+                ctx.lineWidth = 0.5;
+                ctx.strokeRect(
+                    x - holeSize / 2,
+                    y - holeSize / 2,
+                    holeSize,
+                    holeSize
+                );
+            });
+        }
+
+        // Initial generation
+        generate();
+        updateInfo();
+
+        // Mouse interaction for dragging anchors
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: (e.clientX - rect.left - CENTER_X) / SCALE,
+                y: (e.clientY - rect.top - CENTER_Y) / SCALE
+            };
+        }
+
+        function findAnchorAtPoint(x, y) {
+            const clickRadius = 10; // pixels
+            for (let anchor of anchors) {
+                const dx = (x - anchor.x) * SCALE;
+                const dy = (y - anchor.y) * SCALE;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < clickRadius) {
+                    return anchor;
+                }
+            }
+            return null;
+        }
+
+        function findLensAtPoint(x, y) {
+            // Check if click is inside any lens
+            for (let ring of rings) {
+                const dx = x - ring.x;
+                const dy = y - ring.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < ring.radius) {
+                    return ring;
+                }
+            }
+            return null;
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            const pos = getMousePos(e);
+
+            // Check for anchor drag first (higher priority)
+            draggedAnchor = findAnchorAtPoint(pos.x, pos.y);
+            if (draggedAnchor) {
+                isDragging = true;
+                canvas.style.cursor = 'grabbing';
+                selectedLens = null; // Deselect lens when dragging anchor
+                draggedLens = null;
+            } else {
+                // Check for lens selection/drag
+                const clickedLens = findLensAtPoint(pos.x, pos.y);
+                if (clickedLens) {
+                    selectedLens = clickedLens;
+                    draggedLens = clickedLens;
+                    isDragging = true;
+                    // Store offset from lens center to click point
+                    dragOffsetX = pos.x - clickedLens.x;
+                    dragOffsetY = pos.y - clickedLens.y;
+                    canvas.style.cursor = 'grabbing';
+                    draw(); // Redraw to show selection
+                }
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            // Track mouse position for "A" key lens placement
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+
+            const pos = getMousePos(e);
+
+            if (isDragging && draggedAnchor) {
+                // Update anchor position
+                draggedAnchor.x = pos.x;
+                draggedAnchor.y = pos.y;
+
+                // Clear bridges BEFORE regenerating rings to prevent draw() errors
+                bridges = [];
+
+                // Regenerate rings with CURRENT STRATEGY (not default!)
+                generateWithStrategy();
+
+                // Regenerate legs and bridges for new ring positions
+                regenerateLegs();
+            } else if (isDragging && draggedLens) {
+                // Update lens position (accounting for offset)
+                const newX = pos.x - dragOffsetX;
+                const newY = pos.y - dragOffsetY;
+
+                // Store old position in case we need to revert
+                const oldX = draggedLens.x;
+                const oldY = draggedLens.y;
+
+                // Update position
+                draggedLens.x = newX;
+                draggedLens.y = newY;
+
+                // SNAP TO ANCHOR: Check if lens is close to any anchor
+                const SNAP_DISTANCE = 9; // mm - snap when lens edge is within 9mm of anchor center
+                let snapped = false;
+
+                for (const anchor of anchors) {
+                    // Calculate distance from lens center to anchor center
+                    const dx = draggedLens.x - anchor.x;
+                    const dy = draggedLens.y - anchor.y;
+                    const centerDist = Math.sqrt(dx * dx + dy * dy);
+
+                    // Calculate expected tangent distance (lens radius + anchor radius)
+                    const tangentDist = draggedLens.radius + anchor.radius;
+
+                    // Check if lens edge is within snap range of anchor center
+                    const edgeDist = Math.abs(centerDist - tangentDist);
+
+                    if (edgeDist < SNAP_DISTANCE) {
+                        // SNAP! Position lens to be perfectly tangent to this anchor
+                        const angle = Math.atan2(dy, dx);
+                        draggedLens.x = anchor.x + Math.cos(angle) * tangentDist;
+                        draggedLens.y = anchor.y + Math.sin(angle) * tangentDist;
+                        snapped = true;
+                        break; // Snap to first anchor in range (nearest checked first doesn't matter for now)
+                    }
+                }
+
+                // Check if new position is valid (excluding self from collision check)
+                if (!isValid(draggedLens, true)) {
+                    // Revert to old position if invalid
+                    draggedLens.x = oldX;
+                    draggedLens.y = oldY;
+                }
+
+                draw();
+            } else {
+                // Update cursor based on hover
+                const hoverAnchor = findAnchorAtPoint(pos.x, pos.y);
+                const hoverLens = findLensAtPoint(pos.x, pos.y);
+                canvas.style.cursor = (hoverAnchor || hoverLens) ? 'grab' : 'default';
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+            draggedAnchor = null;
+            draggedLens = null;
+            canvas.style.cursor = 'default';
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            isDragging = false;
+            draggedAnchor = null;
+            draggedLens = null;
+            canvas.style.cursor = 'default';
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Ignore keyboard shortcuts when typing in text input fields
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                return; // Let the user type normally
+            }
+
+            if (e.code === 'Space') {
+                e.preventDefault();
+                generate();
+            } else if (e.code === 'Enter') {
+                e.preventDefault();
+                step();
+            } else if (e.code === 'KeyK') {
+                // K for Knife - remove legs from selected lens
+                e.preventDefault();
+                if (selectedLens) {
+                    selectedLens.legType = 'none';
+
+                    // Clear occupied points for this lens
+                    const lensIndex = rings.indexOf(selectedLens);
+                    if (lensIndex !== -1 && occupiedPoints[lensIndex]) {
+                        occupiedPoints[lensIndex].clear();
+                    }
+
+                    console.log('Removed legs from selected lens');
+                    draw();
+                }
+            } else if (e.code === 'KeyR') {
+                // R for Re-roll - cycle to next leg type
+                e.preventDefault();
+                if (selectedLens) {
+                    const legTypes = ['none', 'single', 'double', 'left_only', 'right_only', 'curved_lc', 'curved_cr', 'curved_lr', 'curved_adjacent'];
+                    const currentIndex = legTypes.indexOf(selectedLens.legType);
+                    const nextIndex = (currentIndex + 1) % legTypes.length;
+                    selectedLens.legType = legTypes[nextIndex];
+
+                    // Update occupied points for this lens
+                    const lensIndex = rings.indexOf(selectedLens);
+                    if (lensIndex !== -1) {
+                        if (!occupiedPoints[lensIndex]) {
+                            occupiedPoints[lensIndex] = new Set();
+                        } else {
+                            occupiedPoints[lensIndex].clear();
+                        }
+                        markAttachmentPoints(lensIndex, selectedLens.legType);
+                    }
+
+                    console.log(`Changed leg type to: ${selectedLens.legType}`);
+                    draw();
+                }
+            } else if (e.code === 'KeyD') {
+                // D for Delete - remove selected lens
+                e.preventDefault();
+                if (selectedLens) {
+                    rings = rings.filter(ring => ring !== selectedLens);
+                    selectedLens = null;
+                    console.log('Deleted lens');
+                    updateInfo();
+                    draw();
+                }
+            } else if (e.code === 'KeyA') {
+                // A for Add - add random lens at mouse position (NO tangent requirement)
+                e.preventDefault();
+
+                // Get mouse position relative to canvas
+                const rect = canvas.getBoundingClientRect();
+                const canvasX = lastMouseX - rect.left;
+                const canvasY = lastMouseY - rect.top;
+
+                // Convert to workspace coordinates
+                const x = (canvasX - CENTER_X) / SCALE;
+                const y = (canvasY - CENTER_Y) / SCALE;
+
+                // Random radius (8-25mm for floating accents)
+                const newRadius = Math.random() * 17 + 8;
+
+                // Random color from current palette
+                const newColor = LENS_COLORS[Math.floor(Math.random() * LENS_COLORS.length)];
+
+                const newLens = {
+                    x: x,
+                    y: y,
+                    radius: newRadius,
+                    color: newColor,
+                    legType: 'none' // Start with no legs, user can add manually
+                };
+
+                // Check if valid (within bounds and no collision)
+                if (isValid(newLens)) {
+                    rings.push(newLens);
+                    selectedLens = newLens;
+                    console.log(`Added floating lens: ${(newRadius * 2).toFixed(1)}mm at (${x.toFixed(1)}, ${y.toFixed(1)})`);
+                    updateInfo();
+                    draw();
+                } else {
+                    console.log('Cannot add lens here (collision or out of bounds)');
+                }
+            } else if (e.code === 'ArrowUp') {
+                // Arrow Up - increase radius of selected lens
+                e.preventDefault();
+                if (selectedLens) {
+                    const oldRadius = selectedLens.radius;
+                    selectedLens.radius = Math.min(125, selectedLens.radius + 0.5);
+
+                    // Check if new size causes collision (excluding self)
+                    if (!isValid(selectedLens, true)) {
+                        // Revert if collision
+                        selectedLens.radius = oldRadius;
+                        console.log('Cannot increase size (would cause collision)');
+                    } else {
+                        console.log(`Lens size: ${(selectedLens.radius * 2).toFixed(1)}mm`);
+                        updateInfo();
+                        draw();
+                    }
+                }
+            } else if (e.code === 'ArrowDown') {
+                // Arrow Down - decrease radius of selected lens
+                e.preventDefault();
+                if (selectedLens) {
+                    selectedLens.radius = Math.max(6, selectedLens.radius - 0.5);
+                    console.log(`Lens size: ${(selectedLens.radius * 2).toFixed(1)}mm`);
+                    updateInfo();
+                    draw();
+                }
+            } else if (e.code === 'KeyN') {
+                // N for regeNerate lenses
+                e.preventDefault();
+                regenerateLenses();
+            } else if (e.code === 'KeyZ') {
+                // Z for cycle strategy
+                e.preventDefault();
+                cycleStrategy();
+            } else if (e.code === 'KeyJ') {
+                // J for cycle leg strategy
+                e.preventDefault();
+                cycleLegStrategy();
+            } else if (e.code === 'KeyM') {
+                // M for reMake legs
+                e.preventDefault();
+                regenerateLegs();
+                updateInfo();
+                draw();
+            } else if (e.code === 'KeyB') {
+                // B for Bridge - cycle/add/delete bridge
+                e.preventDefault();
+                if (e.shiftKey) {
+                    // Shift+B: Add another bridge
+                    addBridge();
+                } else if (e.altKey) {
+                    // Alt+B: Delete last bridge
+                    deleteBridge();
+                } else {
+                    // B: Replace last bridge with a new random one
+                    cycleBridge();
+                }
+            } else if (e.code === 'KeyP') {
+                // P for Palette - cycle color palette
+                e.preventDefault();
+                cyclePalette();
+            } else if (e.code === 'KeyL') {
+                e.preventDefault();
+                document.getElementById('showLegs').checked = !document.getElementById('showLegs').checked;
+                draw();
+            } else if (e.code === 'KeyC') {
+                e.preventDefault();
+                document.getElementById('showColors').checked = !document.getElementById('showColors').checked;
+                draw();
+            }
+        });
+    </script>
+</body>
+</html>
